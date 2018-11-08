@@ -1,0 +1,972 @@
+---
+title: "Sup meeting 5"
+author: "Anna Hutchinson"
+date: "01/11/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+---
+
+### Introduction
+
+A common problem with Bayesian fine-mapping approaches is the large number of variants contained in the credible set. Moreover, we have identified instances of over- and under- coverage, whereby less or more variants respectively are needed in the credible set to accurately reach the $\alpha$ credible set size (often $\alpha=95\%$). We hope to amend this problem by developing a *correction factor*, which when applied to the data, will rectify instances of over- and under- coverage.
+
+Schaid et al. (2018) state that the expected posterior probability depends on the effect size of the causal SNP on a trait (OR), the sample size (N), the number of SNPs (nsnps) and SNP correlation structure (LD). Since experimentors know the sample size, the number of SNPs analysed and have some knowledge of the correlation structure, I wish to find a way for experimentors to quantify the information OR provides to the system, without actually having to know the OR. This could then be used in the *correction factor* to improve coverage estimates in Bayesian fine-mapping experiments. 
+
+### Method
+
+Firstly, low, medium and high power systems were constructed to understand the shape of the posterior probability systems and consider ways the OR affects this shape. 
+
+Secondly, possible measures of 'entropy' are considered. These are measures that I hope quantify the shape of the posterior probability system and the information that the OR provides. These are calculated and plotted for the model systems.
+
+Thirdly, a simulation dataset is created with N, nsnps, thr, MAF and LD fixed. This means that I am considering simulations whereby the variation in the power is only due to variation in the OR. The entropy measures are calculated for each simulated system. Logistic regression and random forest methods are used to analyse the effectiveness of the entropy measures in predicting coverage. 
+
+Finally, I simulate posterior probability systems with everything fixed except OR. I look at the distribution of the entropy measures for these simulations. 
+
+---
+
+###1. Construct model low, medium and high power systems
+
+Model posterior probability systems were produced for low, medium and high power systems. 
+
+```{r echo=FALSE, warning=FALSE, comment=FALSE}
+library(bindata)
+library(simGWAS)
+library(coloc)
+library(data.table)
+library(seewave)
+
+ref <- function(nsnps=100,nhaps=1000,LD1=0.2,LD2=0.08){ # LD1 is value eitherside of lead diagonal
+  maf <- runif(nsnps,0.05,0.4)
+  R<-diag(1,nsnps)                                              # LD2 is next diagonal out
+  R[cbind(1:(nsnps-1),2:nsnps)] <- LD1
+  R[cbind(2:nsnps,1:(nsnps-1))] <- LD1
+  R[cbind(1:(nsnps-2),3:nsnps)] <- LD2
+  R[cbind(3:nsnps,1:(nsnps-2))] <- LD2
+  haps=rmvbin(nhaps, maf, bincorr=R) 
+  x=haps+1
+  x=as.data.frame(x)
+  snps <- colnames(x) <- paste0("s",1:nsnps)
+  x$Probability <- 1/nrow(x)
+  x
+}
+
+entropy <- function(p) -mean(log(p))
+
+credset <- function(pp, causal, thr=0.9,do.order=TRUE) {
+  o <- if(do.order) {
+    order(pp,decreasing=TRUE)
+  } else {
+    sample(seq_along(pp))
+  }
+  cumpp <- cumsum(pp[o])
+  wh <- which(cumpp > thr)[1]
+  credset <- o[1:wh]
+  return(list(credset=credset,
+              thr=thr,
+              size=sum( pp[credset] ),
+              contained=causal %in% credset))
+}
+
+
+simdata_x <- function(x,OR,nrep=100,N0=1000,N1=1000,thr=0.5) {
+  snps <- colnames(x)[-ncol(x)] 
+  CV=sample(snps[which(colMeans(haps)>0.1)],1)
+  
+  FP <- make_GenoProbList(snps=snps,W=CV,freq=x) 
+  zsim <- simulated_z_score(N0=N0, # number of controls
+                            N1=N1, # number of cases
+                            snps=snps,
+                            W=CV, 
+                            gamma.W=log(OR), 
+                            freq=x,# reference haplotypes
+                            GenoProbList=FP, 
+                            nrep=nrep)
+  p <- 2*pnorm(-abs(zsim)) # generate p values from z values
+  
+  # generate posterior probabilities using finemap.abf function
+  MAF <- colMeans(x[,snps]-1) # minor allele frequencies
+  PP <- matrix(0,nrow(p),ncol(p)) # will hold the posterior probs
+  results <- lapply(1:nrep, function(i) {
+    tmp <- subset(finemap.abf(dataset=list(pvalues=p[i,], N=N0+N1, MAF=MAF,
+                                           s=N1/(N0+N1), type="cc"), p1=1e-04),snp!="null")
+    tmp$SNP.PP <- tmp$SNP.PP/sum(tmp$SNP.PP)
+    colnames(tmp) <- sub("\\.$","",colnames(tmp))
+    colnames(tmp) <- sub("SNP.PP","PP",colnames(tmp)) # clean up column names
+    tmp$CV <- sub("SNP.","",tmp$snp)==sub("s","",CV)
+    tmp[,c("snp","pvalues","MAF","PP","CV")] # include all the rows and the named columns
+  })
+  results
+}
+```
+
+---
+
+#### Low power system (OR=1, N0=N1=50)
+
+```{r}
+# x.low <- ref()
+# test.low <- simdata_x(x.low, OR=1, N0=50, N1=50) # get 100 systems
+# t.low <- test.low[[1]][order(-test.low[[1]]$PP),] 
+
+setwd("/Users/anna/PhD")
+t.low <- read.table("t.low")
+head(t.low)
+```
+
+The plots below show the pdf and the cdf of the posterior probabilities for this low power system.
+
+```{r echo=FALSE}
+par(mfrow=c(1,2))
+plot(t.low$PP, ylim=c(0,1), xlab="Snp number",ylab="Relative posterior probabilities" ,main="Low power pdf \n (OR=1, N0=N1=50)")
+plot(ecdf(t.low$PP), main="Low power cdf \n (OR=1, N0=N1=50)")
+```
+
+---
+
+#### Medium power system (OR=1.1, N0=N1=700)
+
+```{r}
+# test.med <- simdata_x(x.low, OR=1.1, N0=700, N1=700) # get 100 systems
+# t.med <- test.med[[1]][order(-test.med[[1]]$PP),] 
+
+setwd("/Users/anna/PhD")
+t.med <- read.table("t.med")
+head(t.med)
+```
+
+The plots below show the pdf and the cdf of the posterior probabilities for this medium power system.
+
+```{r echo=FALSE}
+par(mfrow=c(1,2))
+plot(t.med$PP, ylim=c(0,0.05), xlab="Snp number",ylab="Relative posterior probabilities" ,main="Med power pdf \n (OR=1.1, N0=N1=700)")
+plot(ecdf(t.med$PP), main="Med power cdf \n (OR=1.1, N0=N1=700)")
+```
+
+---
+
+#### High power system (OR=1.3, N0=N1=1000)
+
+```{r}
+# test.high <- simdata_x(x.low, OR=1.3, N0=1000, N1=1000) # get 100 systems
+# t.high <- test.high[[1]][order(-test.high[[1]]$PP),] 
+
+setwd("/Users/anna/PhD")
+t.high <- read.table("t.high")
+head(t.high)
+```
+
+The plots below show the pdf and the cdf of the posterior probabilities for this high power system.
+
+```{r echo=FALSE}
+par(mfrow=c(1,2))
+plot(t.high$PP, xlab="Snp number",ylab="Relative posterior probabilities" ,main="High power pdf \n (OR=1.3, N0=N1=1000)")
+plot(ecdf(t.high$PP), main="High power cdf \n (OR=1.3, N0=N1=1000)")
+```
+
+---
+
+The following figure shows all three model systems on the same plot. Note the scale on the y axis, meaning we cannot see the first snp in the high power system. 
+
+A green dashed line has been added to illustrate the case where all posterior probabilities are equal (base level low power system). We could consider using this line to quantify the differences in shapes of posterior probability systems, with low power systems being close to this line and high power systems being far from this line. 
+
+```{r echo=FALSE}
+par(mfrow=c(1,1))
+plot(t.low$PP, ylim=c(0,0.085), cex=0.5, col="blue", pch=16, xlab="Snp number",ylab="posterior probabilities" ,main="Low (blue), med (black), high (red) systems")
+points(t.med$PP, pch=16,col="black", cex=0.5)
+points(t.high$PP,col="red", pch=16, cex=0.5)
+abline(a=0.01, b=0,lty=2, col="green", lwd=2)
+```
+
+---
+
+#### Weighted exponential curves
+
+Weighted exponential curves were fit to the pdfs of each system. The weight for the first snp (the one with the highest posterior probability) was set to 1000, to ensure the curve incorporated this point into the fitting.
+
+```{r}
+set.seed(2)
+we <- rep(1,100)
+we[1] <- 1000 # set weight of first snp to 100
+snps <- seq(1,100,1)
+
+# fit exp model: low
+exp.low <- lm(log(t.low$PP)~snps, weights=we)
+
+# fit exp model: med
+exp.med <- lm(log(t.med$PP)~snps, weights=we)
+
+# fit exp model: high
+exp.high <- lm(log(t.high$PP)~snps, weights = we)
+```
+
+The plot below shows the points and the fitted exponential curves. 
+
+```{r echo=FALSE}
+## plot all together
+plot(t.low$PP,ylim=c(0,1),col="blue", cex=0.6,pch=20, main="PP pdf and fitted exponential curves \n low (blue), med (black), high (red)", xlab="snp",ylab="post prob")
+lines(snps,exp(exp.low$fitted.values),col="darkblue", lwd=2)
+points(t.med$PP,pch=20,cex=0.6)
+lines(snps,exp(exp.med$fitted.values),col="grey", lwd=2)
+points(t.high$PP,pch=20,col="red",cex=0.6)
+lines(snps,exp(exp.high$fitted.values),col="coral4", lwd=2)
+```
+
+
+Perhaps the equations of these curves could be use to quantify the disorder of the system, and the information OR provides to it. 
+
+---
+
+###2. Measures of entropy
+
+Different measures were considered to try and capture the disorder of the system. 
+
+1. 'Entropy': $-mean(log(pp))$
+
+2. 'Max': $max(pp)$
+
+3. 'Median': $median(pp)$
+
+4. 'AUCDF': Area under the cdf
+
+5. 'KL divergence': $mean(log(pp/q))$ where ```q=rep(1/nsnps,nsnps)```.
+
+6. 'Slope': The slope of the weighted exponential curve fitted to the pdf of the posterior probabilities. 
+
+7. 'Intercept': The intercept of the weighted exponential curve fitted to the pdf of the posterior probabilities ($exp(B_0)$). 
+
+8. 'Hellinger': The hellinger distance between the pp prob distributions (P) and q (Q), $\frac{1}{\sqrt{2}}||\sqrt{P}-\sqrt{Q}||_2$.
+
+9. Kolmogorov distance: The sup-distance between the pp prob distributions and q.
+
+---
+
+```{r eval=FALSE, echo=FALSE}
+# entropy
+entropy(t.low$PP)
+entropy(t.med$PP)
+entropy(t.high$PP)
+
+# max
+max(t.low$PP)
+max(t.med$PP)
+max(t.high$PP)
+
+# median
+sort(t.low$PP)[50]
+sort(t.med$PP)[50]
+sort(t.high$PP)[50]
+
+# AUCDF
+AUCDF.low <- integrate(ecdf(t.low$PP), min(t.low$PP), max(t.low$PP))$value
+AUCDF.med <- integrate(ecdf(t.med$PP), min(t.med$PP), max(t.med$PP))$value
+AUCDF.high <- integrate(ecdf(t.high$PP), min(t.high$PP), max(t.high$PP))$value
+
+# KL
+q=rep(1/nsnps,nsnps)
+nsnps=100
+KL.low <- mean(log(t.low$PP/q))
+KL.med <- mean(log(t.med$PP/q))
+KL.high <- mean(log(t.high$PP/q))
+
+# Slope
+slope.low <- exp.low$coefficients[[2]]
+slope.med <- exp.med$coefficients[[2]]
+slope.high <- exp.high$coefficients[[2]]
+
+# Intercept
+int.low <- exp(exp.low$coefficients[[1]])
+int.med <- exp(exp.med$coefficients[[1]])
+int.high <- exp(exp.high$coefficients[[1]])
+
+# Hellinger
+hell.low <- 1/sqrt(2)*sqrt(sum((sqrt(t.low$PP)-sqrt(q))^2))
+hell.med <- 1/sqrt(2)*sqrt(sum((sqrt(t.med$PP)-sqrt(q))^2))
+hell.high <- 1/sqrt(2)*sqrt(sum((sqrt(t.high$PP)-sqrt(q))^2))
+
+# Kolmogorov distance
+library(seewave)
+kol.low <- ks.dist(t.low$PP,q)$D
+kol.med <- ks.dist(t.med$PP,q)$D
+kol.high <- ks.dist(t.high$PP,q)$D
+```
+
+---
+
+#### Plot these results (low, medium then high)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(2)
+library(distrEx)
+par(mfrow=c(3,3))
+plot(c(entropy(t.low$PP),entropy(t.med$PP),entropy(t.high$PP)),ylab="Entropy", pch=16, main="Entropy",xlab="Low, medium, high")
+lines(c(entropy(t.low$PP),entropy(t.med$PP),entropy(t.high$PP)))
+
+plot(c(max(t.low$PP),max(t.med$PP),max(t.high$PP)),ylab="Max pp", pch=16, main="Maximum pp",xlab="Low, medium, high")
+lines(c(max(t.low$PP),max(t.med$PP),max(t.high$PP)))
+
+plot(c(median(t.low$PP),median(t.med$PP),median(t.high$PP)), ylab="Median pp", pch=16, main="Median pp",xlab="Low, medium, high")
+lines(c(median(t.low$PP),median(t.med$PP),median(t.high$PP)))
+
+plot(c(integrate(ecdf(t.low$PP), min(t.low$PP), max(t.low$PP))$value, integrate(ecdf(t.med$PP), min(t.med$PP), max(t.med$PP))$value, integrate(ecdf(t.high$PP), min(t.high$PP), max(t.high$PP))$value), ylab="AUCDF", pch=16, main="Area under CDF",xlab="Low, medium, high")
+lines(c(integrate(ecdf(t.low$PP), min(t.low$PP), max(t.low$PP))$value, integrate(ecdf(t.med$PP), min(t.med$PP), max(t.med$PP))$value, integrate(ecdf(t.high$PP), min(t.high$PP), max(t.high$PP))$value))
+
+q <- rep(1/100,100)
+plot(c(mean(log(t.low$PP/q)),mean(log(t.med$PP/q)),mean(log(t.high$PP/q))),ylab="KL divergence", pch=16, main="KL divergence",xlab="Low, medium, high")
+lines(c(mean(log(t.low$PP/q)),mean(log(t.med$PP/q)),mean(log(t.high$PP/q))))
+
+plot(c(exp.low$coefficients[[2]],exp.med$coefficients[[2]],exp.high$coefficients[[2]]),ylab="Slope", pch=16, main="Slope",xlab="Low, medium, high")
+lines(c(exp.low$coefficients[[2]],exp.med$coefficients[[2]],exp.high$coefficients[[2]]))
+
+plot(c(exp.low$coefficients[[1]],exp.med$coefficients[[1]],exp.high$coefficients[[1]]),ylab="Intercept", pch=16, main="Intercept",xlab="Low, medium, high")
+lines(c(exp.low$coefficients[[1]],exp.med$coefficients[[1]],exp.high$coefficients[[1]]))
+
+plot(c(1/sqrt(2)*sqrt(sum((sqrt(t.low$PP)-sqrt(q))^2)),1/sqrt(2)*sqrt(sum((sqrt(t.med$PP)-sqrt(q))^2)),1/sqrt(2)*sqrt(sum((sqrt(t.high$PP)-sqrt(q))^2))),ylab="Hellinger", pch=16, main="Hellinger Dist",xlab="Low, medium, high")
+lines(c(1/sqrt(2)*sqrt(sum((sqrt(t.low$PP)-sqrt(q))^2)),1/sqrt(2)*sqrt(sum((sqrt(t.med$PP)-sqrt(q))^2)),1/sqrt(2)*sqrt(sum((sqrt(t.high$PP)-sqrt(q))^2))))
+
+plot(c(ks.dist(t.low$PP,q)$D,ks.dist(t.med$PP,q)$D,ks.dist(t.high$PP,q)$D),ylab="Kolmogorov Dist", pch=16, main="Kolmogorov distance",xlab="Low, medium, high")
+lines(c(ks.dist(t.low$PP,q)$D,ks.dist(t.med$PP,q)$D,ks.dist(t.high$PP,q)$D),ylab="Kolmogorov Dist")
+```
+
+The measures seem good at distinguishing between low, medium and high power systems.
+
+---
+
+###3. Simulation for varying OR
+
+A new simulation dataset (20000 entries) was made with fixed N = 1000, nsnps = 100, LD1 = 0.3, LD2 = 0.2 and thr = 0.8.
+
+```{r echo=FALSE}
+set.seed(2)
+wrapper2_x <- function(x) {
+  n <- 1000 # vary sample size
+  or <- sample(c(1,1.05,1.1,1.15,1.2),1) # vary or
+  thr <- 0.8 
+  data <- simdata_x(x,N0=n,N1=n,OR=or) #,...) # data is a list of data.frames
+  
+  cs <- lapply(data, function(d) {
+    tmp.ord <- credset(d$PP, which(d$CV), thr=thr)
+    tmp.noord <- credset(d$PP, which(d$CV), do.order=FALSE,thr=thr)
+    data.frame(order=c(TRUE,FALSE),
+               thr=tmp.ord$thr,
+               size=c(tmp.ord$size,tmp.noord$size),
+               nvar=c(length(tmp.ord$credset),
+                      length(tmp.noord$credset)),
+               covered=c(tmp.ord$contained,
+                         tmp.noord$contained))
+  })  
+  q <- rep(1/100,100)
+  cs <- do.call("rbind",cs)
+  ent <- sapply(data, function(x) entropy(x$PP))
+  max_pp <- sapply(data, function(x) max_pp(x$PP))
+  KL <- sapply(data, function(x) KL(x$PP))
+  AUCDF <- sapply(data, function(x) AUCDF(x$PP))
+  slope <- sapply(data, function(x) slope(x$PP)[[1]])
+  int <- sapply(data, function(x) slope(x$PP)[[2]])
+  hellinger <- sapply(data, function(x) hellinger(x$PP))
+  kolmogorov <- sapply(data, function(x) kolmogorov(x$PP))
+  median <- sapply(data, function(x) median(x$PP))
+  cs$entropy <- rep(ent,each=2)
+  cs$max_pp <- rep(max_pp,each=2)
+  cs$KL <- rep(KL, each=2)
+  cs$AUCDF <- rep(AUCDF, each=2)
+  cs$slope <- rep(slope, each=2)
+  cs$int <- rep(int, each=2)
+  cs$hellinger <- rep(hellinger, each=2)
+  cs$kolmogorov <- rep(kolmogorov, each=2)
+  cs$median <- rep(median, each=2)
+  cs$N <- n
+  cs$OR <- or
+  cs$thr <- thr
+  cs
+}
+
+entropy <- function(p) -mean(log(p))
+max_pp <- function(p) max(p)
+KL <- function(p) mean(log(p/q))
+AUCDF <- function(p) integrate(ecdf(p), min(p), max(p))$value
+we <- rep(1,100)
+we[1] <- 1000
+slope <- function(p){
+  model <- lm(log(p)~snps, weights=we)
+  slope <- model$coefficients[[2]]
+  int <- exp(model$coefficients[[1]])
+  output=list(slope,int)
+} 
+hellinger <- function(p) 1/sqrt(2)*sqrt(sum((sqrt(p)-sqrt(q))^2))
+kolmogorov <- function(p) ks.dist(p,q)$D
+median <- function(p) sort(p)[50] # because median(p) doesnt work for some reason
+
+### simulation
+# x <- ref(LD1=0.3,LD2=0.2)
+# new <- replicate(100,wrapper2_x(x), simplify=FALSE)
+# new <- data.table::rbindlist(new) 
+# write.table(new,"newsup5")
+setwd("/Users/anna/PhD")
+new <- read.table("newsup5")
+new <- as.data.table(new)
+new$size[new$size > 0.999999] <- 0.999999
+new$size <- log(new$size/(1-new$size))
+colnames(new)[3] <- "logitsize"
+new$covered <- as.numeric(new$covered) 
+new.ord <- new[order==TRUE,]
+new.noord <- new[order==FALSE,]
+new.ord <- new.ord[,-1] # remove order column
+new.noord <- new.noord[,-1]
+```
+
+---
+  
+####1. Baseline model for unordered
+
+
+```{r warning=FALSE}
+library(rsq)
+set.seed(2)
+baseline.noord <- glm(covered~logitsize, data=new.noord, family="binomial")
+rsq(baseline.noord,adj=TRUE)
+summary(baseline.noord)
+```
+
+---
+  
+####2. Baseline model for ordered
+
+```{r warning=FALSE}
+set.seed(2)
+baseline.ord <- glm(covered~logitsize, data=new.ord, family="binomial")
+rsq(baseline.ord,adj=TRUE)
+summary(baseline.ord)
+```
+
+
+**The logitsize only predictor model is better for the non-ordered sets than the ordered sets (lower r^2 adj), although there is a lot of noise.**
+  
+--- 
+  
+####3. Ordered: logitsize plus OR
+  
+```{r warning=FALSE}
+set.seed(2)
+ord.OR <- glm(covered~logitsize+OR, data=new.ord, family="binomial")
+rsq(ord.OR,adj=TRUE)
+summary(ord.OR)
+```
+
+By incorporating our new measures of entropy, we hope to decrease AIC and increase r squared. 
+
+---
+  
+####4. Ordered: logitsize plus entropy measures
+  
+---
+
+##### 4a. Logitsize+entropy
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.ent <- glm(covered~logitsize+entropy, data=new.ord, family="binomial")
+rsq(ord.ent,adj=TRUE)
+summary(ord.ent)
+```
+
+---
+
+##### 4b. Logitsize+max_pp
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.max <- glm(covered~logitsize+max_pp, data=new.ord, family="binomial")
+rsq(ord.max,adj=TRUE)
+summary(ord.max)
+```
+
+---
+
+##### 4c. Logitsize+KL
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.KL <- glm(covered~logitsize+KL, data=new.ord, family="binomial")
+rsq(ord.KL,adj=TRUE)
+summary(ord.KL)
+```
+
+---
+
+##### 4d. Logitsize+AUCDF
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.AUCDF <- glm(covered~logitsize+AUCDF, data=new.ord, family="binomial")
+rsq(ord.AUCDF,adj=TRUE)
+summary(ord.AUCDF)
+```
+
+---
+
+##### 4e. Logitsize+slope (of exponential curve fitted to posterior probabilities pdf)
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.slope <- glm(covered~logitsize+slope, data=new.ord, family="binomial")
+rsq(ord.slope,adj=TRUE)
+summary(ord.slope)
+```
+
+##### 4f. Logitsize+int (of exponential curve fitted to posterior probabilities)
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.int <- glm(covered~logitsize+int, data=new.ord, family="binomial")
+rsq(ord.int,adj=TRUE)
+summary(ord.int)
+```
+
+##### 4g. Logitsize+hellinger
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.hell <- glm(covered~logitsize+hellinger, data=new.ord, family="binomial")
+rsq(ord.hell,adj=TRUE)
+summary(ord.hell)
+```
+
+##### 4h. Logitsize+kolmogorov
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.kol <- glm(covered~logitsize+kolmogorov, data=new.ord, family="binomial")
+rsq(ord.kol,adj=TRUE)
+summary(ord.kol)
+```
+
+##### 4j. Logitsize+median
+
+
+```{r warning=FALSE}
+set.seed(2)
+ord.med <- glm(covered~logitsize+median, data=new.ord, family="binomial")
+rsq(ord.med,adj=TRUE)
+summary(ord.med)
+```
+---
+  
+**Unfortunately, none of our measures of entropy seem to improve the model significantly.**
+
+---
+
+### 5. Run cv.glmnet and see if they all get dropped
+
+```{r message=FALSE, comment=FALSE, warning=FALSE}
+set.seed(2)
+library(glmnet) 
+x_ord        <- as.matrix(new.ord[,c(1:3,5:15)]) 
+cv.ord <- cv.glmnet(x_ord, y=new.ord$covered, alpha=1, family="binomial")
+coef(cv.ord,s=cv.ord$lambda.1se) # r2 is 0.1757218
+```
+
+```{r echo=FALSE, eval=FALSE}
+r2 <- cv.ord$glmnet.fit$dev.ratio[which(cv.ord$glmnet.fit$lambda == cv.ord$lambda.1se)] # r2 is 0.1757218
+```
+
+---
+
+#### 5b. Run cv.glmnet and see if they get dropped WITHOUT OR
+
+- Same result as just averaging the covered column.
+
+```{r warning=FALSE, comment=FALSE}
+set.seed(2)
+library(glmnet) # r2 is 0.001173106
+x_ord1        <- as.matrix(new.ord[,c(1:3,5:14)]) # design matrix
+cv.ord1 <- cv.glmnet(x_ord1, y=new.ord$covered, alpha=1, family="binomial")
+coef(cv.ord1,s=cv.ord1$lambda.1se) # yep, all dropped
+```
+
+```{r eval=FALSE, echo=FALSE}
+r2 <- cv.ord1$glmnet.fit$dev.ratio[which(cv.ord1$glmnet.fit$lambda == cv.ord1$lambda.1se)] 
+```
+
+**All get dropped, with or without OR in our model. Notice the r squared is much higher for the model with OR and N.**
+
+---
+
+### 6. Check correlation of entropy measures with OR
+
+- NB KL BOX PLOT IS WRONG.
+
+<p float="left">
+  <img src="/Users/anna/PhD/boxplot.jpeg" width="800" />
+</p>
+
+- We see that there is some correlation with OR for most of the disorder measures. 
+- So why are they not capturing the information OR provides? Surely knowing these measures (and therefore having an indication of OR) is better than not having them at all?
+- Lets investigate the relationship with covered for each entropy measure by looking at the pairs plot.
+
+---
+
+- NB, DATASET CHANGED SO NO LONGER CORRECT
+
+<p float="left">
+  <img src="/Users/anna/PhD/pairs1.jpeg" width="800" />
+</p>
+---
+
+### 7. Non-linear relationship?
+
+Perhaps the relationship with coverage is non-linear? Unfortunately, this does not seem to be the case. Only improves logitsize model slightly and does not improve anywhere near as much as rcs(OR) does.
+
+NB, r squared column wrong here
+
+|         covered~         |   R^2   |  AIC  |
+|:------------------------:|:-------:|:-----:|
+|         logitsize        |  0.0026 | 10404 |
+|     logitsize+rcs(OR)    |  0.1424 | 9265  |
+|  logitsize+rcs(entropy)  |  0.0076 | 10284 |
+|   logitsize+rcs(max_pp)  |  0.0074 | 10287 |
+|     logitsize+rcs(KL)    |  0.0076 | 10284 |
+|   logitsize+rcs(AUCDF)   |  0.0074 | 10287 |
+|   logitsize+rcs(slope)   |  0.0058 | 10408 |
+|    logitsize+rcs(int)    |  0.0087 | 10315 |
+| logitsize+rcs(hellinger) |  0.0079 | 10278 |
+| logitsize+rcs(kolmogoro) |  0.0072 | 10274 |
+|  logitsize+rcs(median)   |  0.0078 | 10283 |
+
+
+```{r echo=FALSE, eval=FALSE}
+library(rms)
+rcs <- glm(covered~logitsize,data=new.ord,model=TRUE,family="binomial")
+OR.rcs <- glm(covered~logitsize+rcs(OR),data=new.ord,model=TRUE,family="binomial")
+ent.rcs <- glm(covered~logitsize+rcs(entropy),data=new.ord,family="binomial")
+max.rcs <- glm(covered~logitsize+rcs(max_pp),data=new.ord,model=TRUE,family="binomial")
+KL.rcs <- glm(covered~logitsize+rcs(KL),data=new.ord,model=TRUE,family="binomial")
+AUCDF.rcs <- glm(covered~logitsize+rcs(AUCDF),data=new.ord,model=TRUE,family="binomial")
+slope.rcs <- glm(covered~logitsize+rcs(slope),data=new.ord,model=TRUE,family="binomial")
+int.rcs <- glm(covered~logitsize+rcs(int),data=new.ord,model=TRUE,family="binomial")
+hellinger.rcs <- glm(covered~logitsize+rcs(hellinger),data=new.ord,model=TRUE,family="binomial")
+kol.rcs <- glm(covered~logitsize+rcs(kolmogorov),data=new.ord,model=TRUE,family="binomial")
+median.rcs <- glm(covered~logitsize+rcs(median),data=new.ord,model=TRUE,family="binomial")
+```
+
+---
+
+### 8. Random forest
+
+---
+
+#### With OR
+
+```{r eval=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+set.seed(2)
+library(randomForest)
+
+new.ord$covered <- as.factor(new.ord$covered)
+output.forest <- randomForest(new.ord$covered ~ ., 
+                              data = new.ord, importance=TRUE)
+varImpPlot(output.forest) 
+print(output.forest) 
+pred <- predict(output.forest,type="prob")
+```
+
+---
+
+#### Without OR
+
+How about if we don't allow OR or N (fixed anyway) in our model?
+
+```{r eval=FALSE}
+set.seed(2)
+output.forest1 <- randomForest(covered ~ slope+int+entropy+KL+max_pp+AUCDF+nvar+thr+hellinger+kolmogorov+median, 
+                              data = new.ord, importance=TRUE)
+varImpPlot(output.forest1) 
+print(output.forest1) 
+```
+
+---
+
+#### Plot the prediction from the random forest model (with OR) against each entropy measure
+
+It seems that because there is so much noise in the model, none of the entropy measures are good at predicting coverage. 
+
+```{r eval=FALSE, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE, comment=FALSE}
+library(ggplot2)
+library(gridExtra)
+set.seed(2)
+par(mfrow=c(2,2))
+data <- cbind(pred[,2],new.ord)
+a=ggplot(data = data, mapping = aes(x=entropy, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+b=ggplot(data = data, mapping = aes(x=max_pp, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+c=ggplot(data = data, mapping = aes(x=KL, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+d=ggplot(data = data, mapping = aes(x=AUCDF, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+e=ggplot(data = data, mapping = aes(x=slope, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+f=ggplot(data = data, mapping = aes(x=int, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+g=ggplot(data = data, mapping = aes(x=hellinger, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+h=ggplot(data = data, mapping = aes(x=kolmogorov, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+i=ggplot(data = data, mapping = aes(x=median, y=V1, alpha=0.3))+ geom_point()+ylab("Prediction from RF")+geom_smooth()+theme(legend.position="none")
+grid.arrange(a,b,c,d,nrow=2)
+grid.arrange(e,f,g,h,i,nrow=3)
+```
+
+  
+```{r echo=FALSE, eval=FALSE}
+BIC(glm(covered ~ logitsize + OR, data=new.ord, family="binomial"))  #9125.061
+BIC(glm(covered ~ logitsize + entropy, data=new.ord, family="binomial")) #10664.09
+BIC(glm(covered ~ logitsize + max_pp, data=new.ord, family="binomial")) #10662.24
+BIC(glm(covered ~ logitsize + KL, data=new.ord, family="binomial")) #10662.53
+BIC(glm(covered ~ logitsize + AUCDF, data=new.ord, family="binomial")) #10662.24
+BIC(glm(covered ~ logitsize + slope, data=new.ord, family="binomial")) #10742.94
+BIC(glm(covered ~ logitsize + int, data=new.ord, family="binomial")) #10742.94
+BIC(glm(covered ~ logitsize + hellinger, data=new.ord, family="binomial")) #10663.8
+BIC(glm(covered ~ logitsize + kolmogorov, data=new.ord, family="binomial")) #10679.7
+BIC(glm(covered ~ logitsize + median, data=new.ord, family="binomial")) #10668.48
+
+AIC(glm(covered ~ logitsize + OR, data=new.ord, family="binomial"))  #9103.43
+AIC(glm(covered ~ logitsize + entropy, data=new.ord, family="binomial")) #10642.46
+AIC(glm(covered ~ logitsize + max_pp, data=new.ord, family="binomial")) #10640.61
+AIC(glm(covered ~ logitsize + KL, data=new.ord, family="binomial")) #10640.89
+AIC(glm(covered ~ logitsize + AUCDF, data=new.ord, family="binomial")) #10662.24
+AIC(glm(covered ~ logitsize + slope, data=new.ord, family="binomial")) #10721.3
+AIC(glm(covered ~ logitsize + int, data=new.ord, family="binomial")) #10721.31
+AIC(glm(covered ~ logitsize + hellinger, data=new.ord, family="binomial")) #10642.17
+AIC(glm(covered ~ logitsize + kolmogorov, data=new.ord, family="binomial")) #10658.07
+AIC(glm(covered ~ logitsize + median, data=new.ord, family="binomial")) #10646.85
+```
+  
+---
+
+#### Summary
+
+- None of the entropy measures seem helpful in predicting coverage. Both linear and non-linear effects have been studied for each measure, but the AIC or BIC does not decrease close to that for the logitsize+OR model.
+
+- Have also tried a simulated dataset with everything fixed (as in 'new') but this time with OR values up to 1.4, the entropy measures still do not improve the model. [See new1 for OR up to 1.4 code].
+
+-----------------------------------
+-----------------------------------
+
+## Examining the effects of entropy for varying OR
+
+1000 posterior probability systems were simulated for 6 different OR values to understand how the OR affects the systems with everything else fixed (N0=N1=1000, LD1=0.3, LD2=0.3, nsnps=100).
+
+- Lowest: OR=1
+
+- Low: OR=1.1
+
+- Mid: OR=1.2
+
+- Midhigh: OR=1.25
+
+- High: OR=1.3
+
+- Highest: OR=1.4
+
+Summaries for the p-values and posterior probabilities are given below:
+
+<p float="left">
+  <img src="/Users/anna/PhD/pvals.jpeg" width="400" />
+   <img src="/Users/anna/PhD/PP.jpeg" width="400" />
+</p>
+
+---
+
+The following histograms show the distribution of values for the entropy measures for the simualtions. 
+
+```{r echo=FALSE, eval=FALSE}
+set.seed(2)
+y <- ref(LD1=0.3,LD2=0.2) # LD1=0.3, LD2=0.2, maf=0.5
+lowest <- simdata_x(y, OR=1, nrep=1000) # N0=N1=1000, nrep=1000
+low <- simdata_x(y, OR=1.1, nrep=1000)
+mid <- simdata_x(y, OR=1.2, nrep=1000)
+midhigh <- simdata_x(y, OR=1.25, nrep=1000)
+high <- simdata_x(y, OR=1.3, nrep=1000)
+highest <- simdata_x(y, OR=1.4, nrep=1000)
+
+lowest.b <- rbindlist(lowest)
+low.b <- rbindlist(low)
+mid.b <- rbindlist(mid)
+midhigh.b <- rbindlist(midhigh)
+high.b <- rbindlist(high)
+highest.b <- rbindlist(highest)
+
+### find out each entropy value for each simualtion (1000) in each 
+
+#ent
+entropy. <- function(p) -mean(log(p$PP))
+ent.lowest <- unlist(lapply(lowest, entropy.))
+ent.low <- unlist(lapply(low,entropy.))
+ent.mid <- unlist(lapply(mid,entropy.))
+ent.midhigh <- unlist(lapply(midhigh,entropy.))
+ent.high <- unlist(lapply(high,entropy.))
+ent.highest <- unlist(lapply(highest,entropy.))
+h.ent.lowest <- qplot(ent.lowest, binwidth=0.1)+xlab("Entropy")+ylab("Frequency")+ggtitle("OR=1 (Entropy)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(4,30)
+h.ent.low <- qplot(ent.low, binwidth=0.1)+xlab("Entropy")+ylab("Frequency")+ggtitle("OR=1.1 (Entropy)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(4,30)
+h.ent.mid <- qplot(ent.mid, binwidth=0.1)+xlab("Entropy")+ylab("Frequency")+ggtitle("OR=1.2 (Entropy)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(4,30)
+h.ent.midhigh <- qplot(ent.midhigh, binwidth=0.1)+xlab("Entropy")+ylab("Frequency")+ggtitle("OR=1.25 (Entropy)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(4,30)
+h.ent.high <- qplot(ent.high, binwidth=0.1)+xlab("Entropy")+ylab("Frequency")+ggtitle("OR=1.3 (Entropy)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(4,30)
+h.ent.highest <- qplot(ent.highest, binwidth=0.1)+xlab("Entropy")+ylab("Frequency")+ggtitle("OR=1.4 (Entropy)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(4,30)
+
+#KL
+KL <- function(p) mean(log(p$PP/q))
+KL.lowest <- unlist(lapply(lowest, KL))
+KL.low <- unlist(lapply(low,KL))
+KL.mid <- unlist(lapply(mid,KL))
+KL.midhigh <- unlist(lapply(midhigh,KL))
+KL.high <- unlist(lapply(high,KL))
+KL.highest <- unlist(lapply(highest,KL))
+h.KL.lowest <- qplot(KL.lowest, binwidth=0.1)+xlab("KL")+ylab("Frequency")+ggtitle("OR=1 (KL)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-25,0.05)
+h.KL.low <- qplot(KL.low, binwidth=0.1)+xlab("KL")+ylab("Frequency")+ggtitle("OR=1.1 (KL)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-25,0.05)
+h.KL.mid <- qplot(KL.mid, binwidth=0.1)+xlab("KL")+ylab("Frequency")+ggtitle("OR=1.2 (KL)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-25,0.05)
+h.KL.midhigh <- qplot(KL.midhigh, binwidth=0.1)+xlab("KL")+ylab("Frequency")+ggtitle("OR=1.25 (KL)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-25,0.05)
+h.KL.high <- qplot(KL.high, binwidth=0.1)+xlab("KL")+ylab("Frequency")+ggtitle("OR=1.3 (KL)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-25,0.05)
+h.KL.highest <- qplot(KL.highest, binwidth=0.1)+xlab("KL")+ylab("Frequency")+ggtitle("OR=1.4 (KL)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-25,0.05)
+
+#max
+max. <- function(p) max(p$PP)
+max.lowest <- unlist(lapply(lowest, max.))
+max.low <- unlist(lapply(low,max.))
+max.mid <- unlist(lapply(mid,max.))
+max.midhigh <- unlist(lapply(midhigh,max.))
+max.high <- unlist(lapply(high,max.))
+max.highest <- unlist(lapply(highest,max.))
+h.max.lowest <- qplot(max.lowest, binwidth=0.1)+xlab("max")+ylab("Frequency")+ggtitle("OR=1 (max)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.max.low <- qplot(max.low, binwidth=0.1)+xlab("max")+ylab("Frequency")+ggtitle("OR=1.1 (max)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.max.mid <- qplot(max.mid, binwidth=0.1)+xlab("max")+ylab("Frequency")+ggtitle("OR=1.2 (max)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.max.midhigh <- qplot(max.midhigh, binwidth=0.1)+xlab("max")+ylab("Frequency")+ggtitle("OR=1.25 (max)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.max.high <- qplot(max.high, binwidth=0.1)+xlab("max")+ylab("Frequency")+ggtitle("OR=1.3 (max)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.max.highest <- qplot(max.highest, binwidth=0.1)+xlab("max")+ylab("Frequency")+ggtitle("OR=1.4 (max)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+
+#median
+median. <- function(p) median(p$PP)
+median.lowest <- unlist(lapply(lowest, median.))
+median.low <- unlist(lapply(low,median.))
+median.mid <- unlist(lapply(mid,median.))
+median.midhigh <- unlist(lapply(midhigh,median.))
+median.high <- unlist(lapply(high,median.))
+median.highest <- unlist(lapply(highest,median.))
+h.median.lowest <- qplot(median.lowest, binwidth=10)+xlab("median")+ylab("Frequency")+ggtitle("OR=1 (median)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(0,0.009)
+h.median.low <- qplot(median.low, binwidth=10)+xlab("median")+ylab("Frequency")+ggtitle("OR=1.1 (median)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(0,0.009)
+h.median.mid <- qplot(median.mid, binwidth=10)+xlab("median")+ylab("Frequency")+ggtitle("OR=1.2 (median)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(0,0.009)
+h.median.midhigh <- qplot(median.midhigh, binwidth=10)+xlab("median")+ylab("Frequency")+ggtitle("OR=1.25 (median)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(0,0.009)
+h.median.high <- qplot(median.high, binwidth=10)+xlab("median")+ylab("Frequency")+ggtitle("OR=1.3 (median)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(0,0.009)
+h.median.highest <- qplot(median.highest, binwidth=10)+xlab("median")+ylab("Frequency")+ggtitle("OR=1.4 (median)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(0,0.009)
+
+#AUCDF
+AUCDF. <- function(p) integrate(ecdf(p$PP), min(p$PP), max(p$PP))$value
+AUCDF.lowest <- unlist(lapply(lowest, AUCDF.))
+AUCDF.low <- unlist(lapply(low,AUCDF.))
+AUCDF.mid <- unlist(lapply(mid,AUCDF.))
+AUCDF.midhigh <- unlist(lapply(midhigh,AUCDF.))
+AUCDF.high <- unlist(lapply(high,AUCDF.))
+AUCDF.highest <- unlist(lapply(highest,AUCDF.))
+h.AUCDF.lowest <- qplot(AUCDF.lowest, binwidth=0.1)+xlab("AUCDF")+ylab("Frequency")+ggtitle("OR=1 (AUCDF)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.AUCDF.low <- qplot(AUCDF.low, binwidth=0.1)+xlab("AUCDF")+ylab("Frequency")+ggtitle("OR=1.1 (AUCDF)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.AUCDF.mid <- qplot(AUCDF.mid, binwidth=0.1)+xlab("AUCDF")+ylab("Frequency")+ggtitle("OR=1.2 (AUCDF)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.AUCDF.midhigh <- qplot(AUCDF.midhigh, binwidth=0.1)+xlab("AUCDF")+ylab("Frequency")+ggtitle("OR=1.25 (AUCDF)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.AUCDF.high <- qplot(AUCDF.high, binwidth=0.1)+xlab("AUCDF")+ylab("Frequency")+ggtitle("OR=1.3 (AUCDF)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.AUCDF.highest <- qplot(AUCDF.highest, binwidth=0.1)+xlab("AUCDF")+ylab("Frequency")+ggtitle("OR=1.4 (AUCDF)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+
+#hell
+hell. <- function(p) 1/sqrt(2)*sqrt(sum((sqrt(p$PP)-sqrt(q))^2))
+hell.lowest <- unlist(lapply(lowest, hell.))
+hell.low <- unlist(lapply(low,hell.))
+hell.mid <- unlist(lapply(mid,hell.))
+hell.midhigh <- unlist(lapply(midhigh,hell.))
+hell.high <- unlist(lapply(high,hell.))
+hell.highest <- unlist(lapply(highest,hell.))
+h.hell.lowest <- qplot(hell.lowest, binwidth=0.1)+xlab("hell")+ylab("Frequency")+ggtitle("OR=1 (hell)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.hell.low <- qplot(hell.low, binwidth=0.1)+xlab("hell")+ylab("Frequency")+ggtitle("OR=1.1 (hell)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.hell.mid <- qplot(hell.mid, binwidth=0.1)+xlab("hell")+ylab("Frequency")+ggtitle("OR=1.2 (hell)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.hell.midhigh <- qplot(hell.midhigh, binwidth=0.1)+xlab("hell")+ylab("Frequency")+ggtitle("OR=1.25 (hell)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.hell.high <- qplot(hell.high, binwidth=0.1)+xlab("hell")+ylab("Frequency")+ggtitle("OR=1.3 (hell)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+h.hell.highest <- qplot(hell.highest, binwidth=0.1)+xlab("hell")+ylab("Frequency")+ggtitle("OR=1.4 (hell)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,1.05)
+
+#kol
+kol. <- function(p) ks.dist(p$PP,q)$D
+kol.lowest <- unlist(lapply(lowest, kol.))
+kol.low <- unlist(lapply(low,kol.))
+kol.mid <- unlist(lapply(mid,kol.))
+kol.midhigh <- unlist(lapply(midhigh,kol.))
+kol.high <- unlist(lapply(high,kol.))
+kol.highest <- unlist(lapply(highest,kol.))
+h.kol.lowest <- qplot(kol.lowest, binwidth=0.1)+xlab("kol")+ylab("Frequency")+ggtitle("OR=1 (kol)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,0.75)
+h.kol.low <- qplot(kol.low, binwidth=0.1)+xlab("kol")+ylab("Frequency")+ggtitle("OR=1.1 (kol)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,0.75)
+h.kol.mid <- qplot(kol.mid, binwidth=0.1)+xlab("kol")+ylab("Frequency")+ggtitle("OR=1.2 (kol)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,0.75)
+h.kol.midhigh <- qplot(kol.midhigh, binwidth=0.1)+xlab("kol")+ylab("Frequency")+ggtitle("OR=1.25 (kol)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,0.75)
+h.kol.high <- qplot(kol.high, binwidth=0.1)+xlab("kol")+ylab("Frequency")+ggtitle("OR=1.3 (kol)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,0.75)
+h.kol.highest <- qplot(kol.highest, binwidth=0.1)+xlab("kol")+ylab("Frequency")+ggtitle("OR=1.4 (kol)")+geom_density()+theme(plot.title = element_text(hjust = 0.5, face="bold"))+xlim(-0.05,0.75)
+```
+
+
+<p float="left">
+  <img src="/Users/anna/PhD/entropy.jpeg" width="800" />
+</p>
+
+Explanation: Entropy is low for low power systems, as most posterior probabilities will lie close to the y=1/nsnps line. Entropy increases for higher power systems but perhaps not as much as we'd have liked. 
+
+```{r echo=FALSE, eval=FALSE}
+grid.arrange(h.KL.lowest,h.KL.low,h.KL.mid,h.KL.high,h.KL.highest)
+```
+
+<p float="left">
+  <img src="/Users/anna/PhD/KL.jpeg" width="800" />
+</p>
+
+<p float="left">
+  <img src="/Users/anna/PhD/max.jpeg" width="800" />
+</p>
+
+Explanation: The maximum moves from very close to 0 to very close to 1. Again, this seems like an appropriate measure, however it does not distinguish well between low OR systems.
+
+<p float="left">
+  <img src="/Users/anna/PhD/median.jpeg" width="800" />
+</p>
+
+Explanation: The median moves closer to 0 for higher OR systems, as there is one pp holding all the probability, and all the others have to share the small amount that is left. It seems that this measure would struggle for OR values between 1 and 1.25 (most likely OR values).
+
+<p float="left">
+  <img src="/Users/anna/PhD/AUCDF.jpeg" width="800" />
+</p>
+
+Explanation: Seems like a good measure to capture entropy, struggles for lower OR values. 
+
+<p float="left">
+  <img src="/Users/anna/PhD/hell.jpeg" width="800" />
+</p>
+
+Explanation: Seems like a good measure to capture entropy, struggles for lower OR values. 
+
+<p float="left">
+  <img src="/Users/anna/PhD/kol.jpeg" width="800" />
+</p>
+
+Explanation: Seems like a good measure to capture entropy, struggles for lower OR values. 
+
+---
+
+#### Summary and questions
+
+- Why are there some seemingly high power systems in the OR=1 group (see image below for example)? Where is this power coming from (note this isn't the CV...)?
+
+<p float="left">
+  <img src="/Users/anna/PhD/why.jpeg" width="300" />
+</p>
+
+- Several of the measures (kolmogorov distance, hellinger distance, AUCDF, max, median) have near identical distributions for OR=1 and OR=1.1, suggesting they would struggle to capture information about OR for low power systems. This seems to be because the distributions of posterior probabilities for OR=1 and OR=1.1 are extremely similar.
+
+<p float="left">
+  <img src="/Users/anna/PhD/1.jpeg" width="400" />
+</p>
+
+- I think our focus should shift to how we can use this KL measure instead of OR as a predictor of coverage. 
