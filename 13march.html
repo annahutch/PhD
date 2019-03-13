@@ -398,12 +398,60 @@ corrected_cs &lt;- function(z, f, N0, N1, Sigma, lower, upper, desired.cov, acc 
 <hr />
 <p>Problems:</p>
 <ul>
-<li><p>My calculated posterior probabilities do not match those in the paper. Perhaps due to cutting SNPs not in LD matrix, rounding or the method used to calculate pps in the paper. Why are they looking at ABF comparing index SNP causal vrs each of the others rather than ABF comparing each SNP causal vrs the null?</p></li>
+<li><p>My calculated posterior probabilities do not match those in the paper. Perhaps due to cutting out SNPs not in LD matrix, rounding or the method used to calculate pps in the paper. Why are they looking at ABF comparing index SNP causal vrs each of the others rather than ABF comparing each SNP causal vrs the null?</p></li>
 <li><p>Getting this error: In mvtnorm:::rmvnorm(nrep, rep(0, ncol(Sigma)), Sigma) : sigma is numerically not positive semidefinite.</p></li>
 </ul>
 <hr />
 <ul>
-<li>Anyhow, I have ran an array job that finds the corrected coverage of the 99% credible sets from the T1D data and (if possible) find a new credible set with corrected coverage &gt;= 0.99 using the <code>corrcoverage</code> package.</li>
+<li><p>Anyhow, I have ran an array job that finds the corrected coverage of the 99% credible sets from the T1D data and (if possible) finds a new credible set with corrected coverage &gt;= 0.99 using the <code>corrcoverage</code> package.</p>
+<ul>
+<li>their_cs_nvar: The number of variants in the credible set reported in the paper</li>
+<li>our_cs_nvar: The number of variants in the credible set I found by following the standard Bayesian method</li>
+<li>our_cs_corrcov: The corrected coverage estimate of the credible set using the standard Bayesian approach</li>
+<li>new_cs_nvar: The number of variants in the new credible set found using the <code>corrected_cs</code> function</li>
+<li>new_corrcov: The corrected coverage estimate of the new credible set</li>
+</ul></li>
+</ul>
+<pre><code>##     index_SNP their_cs_nvar our_cs_nvar our_cs_corrcov new_cs_nvar new_corrcov
+## 1  rs10277986            26          11      0.9732795          17   0.9903420
+## 2  rs11203202             5           4      0.9960134           4   0.9904442
+## 3  rs11954020           136          83      0.9941234          74   0.9904929
+## 4  rs12416116             7           6      0.9902935           5   0.9900865
+## 5  rs12453507           112          65      0.9921685          63   0.9904078
+## 6  rs12927355            41          20      0.9693932          24   0.9904093
+## 7  rs13415583           139          92      0.9889096          97   0.9900088
+## 8   rs1456988            40          26      0.9915964          26   0.9904314
+## 9    rs151234             0          10      0.9848938          20   0.9904777
+## 10  rs1538171           154          87      0.9701159         101   0.9904821
+## 11  rs1615504            40          26      0.9920699          25   0.9904854
+## 12  rs1893217            35          11      0.9478510          32   0.9900666
+## 13   rs193778           102          23      0.9932024          24   0.9903892
+## 14  rs2111485             4           4      0.9822731           4   0.9901479
+## 15   rs229533            15           8      0.9937547           5   0.9902300
+## 16  rs2476601             2           2      0.7986403           2   0.8968245
+## 17  rs3024505             9           7      0.9965116           5   0.9901786
+## 18  rs3087243            30          21      0.9523659          44   0.9902696
+## 19 rs34593439             3           2      0.9934904           2   0.9903248
+## 20   rs402072            25          14      0.9948048          12   0.9904155
+## 21  rs4820830           117          59      0.9812119          67   0.9900985
+## 22   rs516246            36          12      0.9863866          12   0.9903131
+## 23 rs56994090            11           8      0.9974704           8   0.9902434
+## 24  rs6043409            39          16      0.9956430          10   0.9901013
+## 25 rs61839660             5           4      0.9512246           7   0.9900678
+## 26 rs62447205            56          40      0.9824468          55   0.9901434
+## 27  rs6476839            21          18      0.9947390          17   0.9903600
+## 28  rs6518350            68          41      0.9975402          26   0.9900527
+## 29   rs653178             5           2      0.8339680           5   0.9805488
+## 30   rs705705            22           9      0.9297544          19   0.9903935
+## 31 rs72727394            32          19      0.9946555          19   0.9902028
+## 32 rs72928038            56          36      0.9934878          34   0.9904087
+## 33   rs757411            82          54      0.9904337          53   0.9900654
+## 34 rs75793288            34          22      0.9695837          35   0.9901022
+## 35  rs8056814            22           8      0.9671638          14   0.9902707
+## 36   rs917911           135         133      0.9950358          48   0.9902130
+## 37  rs9585056             7           3      0.9969532           1   0.9898862</code></pre>
+<ul>
+<li>It seems that our method works well at increasing the number of variants in the set when the corrected coverage estimate is too low (e.g. rs61839660) and removing variants from the set when the corrected coverage estimate is too high (e.g. rs11954020).</li>
 </ul>
 <hr />
 </div>
