@@ -20,7 +20,7 @@ This website contains weekly summaries for my work on credible sets (1st year Ph
 
 [7 Dec 2018](http://annahutch.github.io/PhD/7Dec2018.html)<br /> 
 
-[8 Dec 2018](http://annahutch.github.io/PhD/8Dec2018.html)<br /> 
+[8 Dec 2018](http://annahutch.github.io/PhD/8thDec2018.html)<br /> 
  
 2019:
  
