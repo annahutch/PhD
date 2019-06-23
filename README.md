@@ -1,4 +1,4 @@
-This website contains weekly summaries for my work on credible sets (1st year PhD).
+## Credible Sets (1st Year PhD)
 
 2018: 
  
