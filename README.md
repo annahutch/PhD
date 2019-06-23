@@ -39,3 +39,11 @@ This website contains weekly summaries for my work on credible sets (1st year Ph
 [13 March 2019](http://annahutch.github.io/PhD/13march.html)<br /> 
 
 [20 March 2019](http://annahutch.github.io/PhD/20March.html)<br /> 
+
+[27 March 2019](http://annahutch.github.io/PhD/27March_new.html)<br /> 
+
+[3 April 2019](http://annahutch.github.io/PhD/3rdApril.html)<br /> 
+
+[17 April 2019](http://annahutch.github.io/PhD/17Apr.html)<br /> 
+
+[8 May 2019](http://annahutch.github.io/PhD/8may.html)<br /> 
