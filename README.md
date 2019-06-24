@@ -47,3 +47,5 @@
 [17 April 2019](http://annahutch.github.io/PhD/17Apr.html)<br /> 
 
 [8 May 2019](http://annahutch.github.io/PhD/8may.html)<br /> 
+
+[SuSiE notes and implementation](http://annahutch.github.io/PhD/SuSiE.html)<br /> 
