@@ -55,3 +55,5 @@
 [3 July 2019](http://annahutch.github.io/PhD/3july.html)<br /> 
 
 [15 July 2019](http://annahutch.github.io/PhD/15july.html)<br /> 
+
+[24 July 2019](http://annahutch.github.io/PhD/24july.html)<br /> 
