@@ -57,3 +57,6 @@
 [15 July 2019](http://annahutch.github.io/PhD/15july.html)<br /> 
 
 [24 July 2019](http://annahutch.github.io/PhD/24july.html)<br /> 
+
+[Some notes before identifying the problem with my code](http://annahutch.github.io/PhD/before_fixing.html)<br /> 
+
