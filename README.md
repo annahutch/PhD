@@ -64,14 +64,14 @@
 
 [14 August 2019](http://annahutch.github.io/PhD/14aug.html)<br /> 
 
----
+
 
 ## Functional Genomics
 
----
+
 
 ## Prior re-weighting
 
----
+
 
 
