@@ -2,15 +2,15 @@
 
 2018: 
  
-[Intro1](http://annahutch.github.io/PhD/1Oct2018.html)<br />
+- [Intro1](http://annahutch.github.io/PhD/1Oct2018.html)
 
-[Intro2](http://annahutch.github.io/PhD/2ndOct2018.html)<br />
+- [Intro2](http://annahutch.github.io/PhD/2ndOct2018.html)
 
-[16 Oct 2018](http://annahutch.github.io/PhD/22Oct2018.html)<br /> 
+- [16 Oct 2018](http://annahutch.github.io/PhD/22Oct2018.html)
 
-[26 Oct 2018](http://annahutch.github.io/PhD/26Oct2018.html)<br /> 
+- [26 Oct 2018](http://annahutch.github.io/PhD/26Oct2018.html)
 
-[1 Nov 2018](http://annahutch.github.io/PhD/1Nov2018.html)<br /> 
+- [1 Nov 2018](http://annahutch.github.io/PhD/1Nov2018.html)
 
 [13 Nov 2018](http://annahutch.github.io/PhD/13Nov2018.html)<br /> 
 
@@ -72,6 +72,6 @@
 
 ## Prior re-weighting
 
-
+[28 Aug 2019] (http://annahutch.github.io/PhD/28_Aug.html)<br /> 
 
 
