@@ -12,59 +12,57 @@
 
 - [1 Nov 2018](http://annahutch.github.io/PhD/1Nov2018.html)
 
-[13 Nov 2018](http://annahutch.github.io/PhD/13Nov2018.html)<br /> 
+- [13 Nov 2018](http://annahutch.github.io/PhD/13Nov2018.html)
 
-[20 Nov 2018](http://annahutch.github.io/PhD/20Nov2018.html)<br /> 
+- [20 Nov 2018](http://annahutch.github.io/PhD/20Nov2018.html)
 
-[30 Nov 2018](http://annahutch.github.io/PhD/31Nov2018.html)<br /> 
+- [30 Nov 2018](http://annahutch.github.io/PhD/31Nov2018.html)
 
-[7 Dec 2018](http://annahutch.github.io/PhD/7Dec2018.html)<br /> 
+- [7 Dec 2018](http://annahutch.github.io/PhD/7Dec2018.html)
 
-[8 Dec 2018](http://annahutch.github.io/PhD/8thDec2018.html)<br /> 
+- [8 Dec 2018](http://annahutch.github.io/PhD/8thDec2018.html)
  
 2019:
  
-[16 Jan 2019](http://annahutch.github.io/PhD/jan16th.html)<br /> 
+- [16 Jan 2019](http://annahutch.github.io/PhD/jan16th.html)
 
-[23 Jan 2019](http://annahutch.github.io/PhD/23jan.html)<br /> 
+- [23 Jan 2019](http://annahutch.github.io/PhD/23jan.html) 
 
-[12 Feb 2019](http://annahutch.github.io/PhD/12feb.html)<br /> 
+- [12 Feb 2019](http://annahutch.github.io/PhD/12feb.html)
 
-[20 Feb 2019](http://annahutch.github.io/PhD/20thFeb.html)<br /> 
+- [20 Feb 2019](http://annahutch.github.io/PhD/20thFeb.html)
 
-[27 Feb 2019](http://annahutch.github.io/PhD/27thfeb.html)<br /> 
+- [27 Feb 2019](http://annahutch.github.io/PhD/27thfeb.html)
 
-[6 March 2019](http://annahutch.github.io/PhD/6thMarch.html)<br />
+- [6 March 2019](http://annahutch.github.io/PhD/6thMarch.html)
 
-[13 March 2019](http://annahutch.github.io/PhD/13march.html)<br /> 
+- [13 March 2019](http://annahutch.github.io/PhD/13march.html)
 
-[20 March 2019](http://annahutch.github.io/PhD/20March.html)<br /> 
+- [20 March 2019](http://annahutch.github.io/PhD/20March.html)
 
-[27 March 2019](http://annahutch.github.io/PhD/27March_new.html)<br /> 
+- [27 March 2019](http://annahutch.github.io/PhD/27March_new.html)
 
-[3 April 2019](http://annahutch.github.io/PhD/3rdApril.html)<br /> 
+- [3 April 2019](http://annahutch.github.io/PhD/3rdApril.html)
 
-[17 April 2019](http://annahutch.github.io/PhD/17Apr.html)<br /> 
+- [17 April 2019](http://annahutch.github.io/PhD/17Apr.html)
 
-[8 May 2019](http://annahutch.github.io/PhD/8may.html)<br /> 
+- [8 May 2019](http://annahutch.github.io/PhD/8may.html)
 
-[SuSiE notes and implementation](http://annahutch.github.io/PhD/SuSiE.html)<br /> 
+- [SuSiE notes and implementation](http://annahutch.github.io/PhD/SuSiE.html)
 
-[26 June 2019](http://annahutch.github.io/PhD/june.html)<br /> 
+- [26 June 2019](http://annahutch.github.io/PhD/june.html)
 
-[3 July 2019](http://annahutch.github.io/PhD/3july.html)<br /> 
+- [3 July 2019](http://annahutch.github.io/PhD/3july.html)
 
-[15 July 2019](http://annahutch.github.io/PhD/15july.html)<br /> 
+- [15 July 2019](http://annahutch.github.io/PhD/15july.html)
 
-[24 July 2019](http://annahutch.github.io/PhD/24july.html)<br /> 
+- [24 July 2019](http://annahutch.github.io/PhD/24july.html)
 
-[Some notes before identifying the problems with my code](http://annahutch.github.io/PhD/before_fixing.html)<br /> 
+- [Some notes before identifying the problems with my code](http://annahutch.github.io/PhD/before_fixing.html)
 
-[31 July 2019](http://annahutch.github.io/PhD/31july.html)<br /> 
+- [31 July 2019](http://annahutch.github.io/PhD/31july.html)
 
-[14 August 2019](http://annahutch.github.io/PhD/14aug.html)<br /> 
-
-
+- [14 August 2019](http://annahutch.github.io/PhD/14aug.html) 
 
 ## Functional Genomics
 
@@ -72,6 +70,6 @@
 
 ## Prior re-weighting
 
-[28 Aug 2019] (http://annahutch.github.io/PhD/28_Aug.html)<br /> 
+- [28 Aug 2019] (http://annahutch.github.io/PhD/28_Aug.html)
 
 
