@@ -66,6 +66,8 @@
 
 - [14 August 2019](http://annahutch.github.io/PhD/14aug.html) 
 
+- [Final checks](http://annahutch.github.io/PhD/final-checks.html)
+
 ## Functional Genomics
 
 
