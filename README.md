@@ -70,7 +70,7 @@
 
 
 
-## Prior Re-weighting
+## Prior re-weighting
 
 - [28 Aug 2019](http://annahutch.github.io/PhD/28_Aug.html)
 
