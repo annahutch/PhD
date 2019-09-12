@@ -26,6 +26,8 @@
 
 - [Frequentist vrs Bayesian genetic association testing](http://annahutch.github.io/PhD/statistical_methods_for_GWA.html)
  
+- [Deriving PPs](http://annahutch.github.io/PhD/math_summary.html)
+
 - [16 Jan 2019](http://annahutch.github.io/PhD/jan16th.html)
 
 - [23 Jan 2019](http://annahutch.github.io/PhD/23jan.html) 
