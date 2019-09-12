@@ -74,6 +74,8 @@
 
 - [GWAS to function](http://annahutch.github.io/PhD/GWAS_to_function.html)
 
+- [Chromatin Conformation](http://annahutch.github.io/PhD/chromatin_conformation.html)
+
 ## Prior re-weighting
 
 - [28 Aug 2019](http://annahutch.github.io/PhD/28_Aug.html)
