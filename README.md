@@ -72,7 +72,7 @@
 
 ## Functional Genomics
 
-
+- [GWAS to function](http://annahutch.github.io/PhD/GWAS_to_function.html)
 
 ## Prior re-weighting
 
