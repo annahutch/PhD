@@ -85,3 +85,5 @@
 - [28 Aug 2019](http://annahutch.github.io/PhD/28_Aug.html)
 
 - [11 Sept 2019](http://annahutch.github.io/PhD/11_sept.html)
+
+- [16 Sept 2019](http://annahutch.github.io/PhD/prior.html)
