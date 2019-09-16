@@ -76,7 +76,7 @@
 
 - [eQTLs, ASE and colocalisation](http://annahutch.github.io/PhD/eQTLs-and-ASE.html)
 
-- [GWAS to function](http://annahutch.github.io/PhD/GWAS_to_function.html)
+- [GWAS to function](http://annahutch.github.io/PhD/GWAS-to-function.html)
 
 - [Chromatin conformation](http://annahutch.github.io/PhD/chromatin_conformation.html)
 
