@@ -87,3 +87,5 @@
 - [11 Sept 2019](http://annahutch.github.io/PhD/11_sept.html)
 
 - [16 Sept 2019](http://annahutch.github.io/PhD/prior.html)
+
+- [2 Oct 2019](http://annahutch.github.io/PhD/selecting_alpha.html)
