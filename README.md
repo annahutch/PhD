@@ -89,3 +89,7 @@
 - [16 Sept 2019](http://annahutch.github.io/PhD/prior.html)
 
 - [2 Oct 2019](http://annahutch.github.io/PhD/selecting_alpha.html)
+
+## Peaky+ (2nd Year PhD)
+
+- [10 Oct 2019](http://annahutch.github.io/PhD/09oct.html)
