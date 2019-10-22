@@ -95,3 +95,7 @@
 - [10 Oct 2019](http://annahutch.github.io/PhD/09oct.html)
 
 - [17 Oct 2019](http://annahutch.github.io/PhD/17oct.html)
+
+- [How do Cohesin and CTCF Fold DNA in Mammalian Genomes](http://annahutch.github.io/PhD/How do Cohesin and CTCF Fold DNA in Mammalian Genomes.pdf)
+
+- [Technologies to study spatial genome organisation](http://annahutch.github.io/PhD/Technologies to study spatial genome organisation.pdf)
