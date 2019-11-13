@@ -101,3 +101,5 @@
 - [Technologies to study spatial genome organisation](https://github.com/annahutch/PhD/blob/master/Technologies%20to%20study%20spatial%20genome%20organisation.pdf)
 
 - [31 Oct 2019](http://annahutch.github.io/PhD/31oct.html)
+
+- [14 Nov 2019](http://annahutch.github.io/PhD/14nov.html)
