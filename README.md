@@ -70,16 +70,6 @@
 
 - [Final checks](http://annahutch.github.io/PhD/final-checks.html)
 
-## Functional genomics (2nd year PhD)
-
-- [Basics](http://annahutch.github.io/PhD/Basics.html)
-
-- [eQTLs, ASE and colocalisation](http://annahutch.github.io/PhD/eQTLs-and-ASE.html)
-
-- [GWAS to function](http://annahutch.github.io/PhD/GWAS-to-function.html)
-
-- [Chromatin conformation](http://annahutch.github.io/PhD/chromatin_conformation.html)
-
 ## Prior re-weighting (brief revisit to fine-mapping)
 
 - [28 Aug 2019](http://annahutch.github.io/PhD/28_Aug.html)
@@ -90,13 +80,23 @@
 
 - [2 Oct 2019](http://annahutch.github.io/PhD/selecting_alpha.html)
 
+## Functional genomics (2nd year PhD)
+
+- [Basics](http://annahutch.github.io/PhD/Basics.html)
+
+- [eQTLs, ASE and colocalisation](http://annahutch.github.io/PhD/eQTLs-and-ASE.html)
+
+- [GWAS to function](http://annahutch.github.io/PhD/GWAS-to-function.html)
+
+- [Chromatin conformation](http://annahutch.github.io/PhD/chromatin_conformation.html)
+
 ## Peaky+ 
 
 - [10 Oct 2019](http://annahutch.github.io/PhD/09oct.html)
 
 - [17 Oct 2019](http://annahutch.github.io/PhD/17oct.html)
 
-## Back to functional genomics
+## Return to functional genomics
 
 - [How do Cohesin and CTCF Fold DNA in Mammalian Genomes](https://github.com/annahutch/PhD/blob/master/How%20do%20Cohesin%20and%20CTCF%20Fold%20DNA%20in%20Mammalian%20Genomes.pdf)
 
@@ -107,4 +107,12 @@
 - [14 Nov 2019](http://annahutch.github.io/PhD/14nov.html)
 
 - [Quantile Regression](http://annahutch.github.io/PhD/quantile_regression.html)
+
+### Existing methods:
+
+- [fgwas](http://annahutch.github.io/PhD/fGWAS.html)
+
+- [GARFILED](http://annahutch.github.io/PhD/garfield.html)
+
+- [CHEERS](http://annahutch.github.io/PhD/CHEERS.hml)
 
