@@ -112,7 +112,7 @@
 
 - [fgwas](http://annahutch.github.io/PhD/fGWAS.html)
 
-- [GARFILED](http://annahutch.github.io/PhD/garfield.html)
+- [GARFIELD](http://annahutch.github.io/PhD/garfield.html)
 
 - [CHEERS](http://annahutch.github.io/PhD/CHEERS.hml)
 
