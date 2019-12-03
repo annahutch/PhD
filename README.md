@@ -114,5 +114,5 @@
 
 - [GARFIELD](http://annahutch.github.io/PhD/garfield.html)
 
-- [CHEERS](http://annahutch.github.io/PhD/CHEERS.hml)
+- [CHEERS](http://annahutch.github.io/PhD/CHEERS.html)
 
