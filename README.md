@@ -108,6 +108,8 @@
 
 - [Quantile Regression](http://annahutch.github.io/PhD/quantile_regression.html)
 
+- [5 Dec 2019](http://annahutch.github.io/PhD/28nov.html)
+
 ### Existing methods:
 
 - [fgwas](http://annahutch.github.io/PhD/fGWAS.html)
