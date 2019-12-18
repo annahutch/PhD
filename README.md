@@ -112,6 +112,8 @@
 
 - [12 Dec 2019](http://annahutch.github.io/PhD/12_dec.html)
 
+- [19 Dec 2019](http://annahutch.github.io/PhD/19dec.html)
+
 ### Existing methods:
 
 - [fgwas](http://annahutch.github.io/PhD/fGWAS.html)
