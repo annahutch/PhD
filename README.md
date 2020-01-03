@@ -116,9 +116,13 @@
 
 ### Existing methods:
 
+- [Summary](http://annahutch.github.io/PhD/summary.html)
+
 - [fgwas](http://annahutch.github.io/PhD/fGWAS.html)
 
-- [GARFIELD](http://annahutch.github.io/PhD/garfield.html)
+- [GREGOR](http://annahutch.github.io/PhD/GREGOR.html)
 
 - [CHEERS](http://annahutch.github.io/PhD/CHEERS.html)
+
+- [GARFIELD](http://annahutch.github.io/PhD/garfield.html)
 
