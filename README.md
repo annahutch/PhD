@@ -122,6 +122,8 @@
 
 - [GREGOR](http://annahutch.github.io/PhD/GREGOR.html)
 
+- [GoShifter](http://annahutch.github.io/PhD/GoShifter.html)
+
 - [CHEERS](http://annahutch.github.io/PhD/CHEERS.html)
 
 - [GARFIELD](http://annahutch.github.io/PhD/garfield.html)
