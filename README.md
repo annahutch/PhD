@@ -114,6 +114,10 @@
 
 - [19 Dec 2019](http://annahutch.github.io/PhD/19dec.html)
 
+- [Genomic control](http://annahutch.github.io/PhD/genomic-control.html)
+
+- [End of 2019 summary](http://annahutch.github.io/PhD/end-of-year-summary.html)
+
 ### Existing methods:
 
 - [Summary](http://annahutch.github.io/PhD/summary.html)
