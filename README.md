@@ -118,6 +118,8 @@
 
 - [End of 2019 summary](http://annahutch.github.io/PhD/end-of-year-summary.html)
 
+- [9th Jan 2020](http://annahutch.github.io/PhD/9jan.html)
+
 ### Existing methods:
 
 - [Summary](http://annahutch.github.io/PhD/summary.html)
