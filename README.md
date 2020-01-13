@@ -124,6 +124,8 @@
 
 - [Summary](http://annahutch.github.io/PhD/summary.html)
 
+- [LD Score Regression](http://annahutch.github.io/PhD/LD-score-regression.html)
+
 - [fgwas](http://annahutch.github.io/PhD/fGWAS.html)
 
 - [GREGOR](http://annahutch.github.io/PhD/GREGOR.html)
