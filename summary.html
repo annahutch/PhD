@@ -371,7 +371,7 @@ summary {
 
 
 <hr />
-<p>The methods discussed here are concerned with finding the enrichment of GWAS signals in specific functional annotations or cell types/ tissues, either as an intermediate step in solving a different biological hypothesis or as the ultimate goal of the method. For example, finding that Crohn’s disease associated variants are enriched in open chromatin regions in a specific blood cell type. This may help with finding disease relevant cell types/ tissues for the development of therapeutic targets or in fine-mapping whereby association statistics can be reweighted (e.g. using enrichment information to define prior probabilities of causality in Bayesian fine-mapping).</p>
+<p>The methods discussed here are concerned with finding the enrichment of GWAS signals in specific functional annotations or cell types/ tissues, either as an intermediate step in solving a different biological question or as the ultimate goal of the method. For example, finding that Crohn’s disease associated variants are enriched in open chromatin regions in a specific blood cell type. This may help with finding disease relevant cell types/ tissues for the development of therapeutic targets or in fine-mapping whereby association statistics can be reweighted (e.g. using enrichment information to define prior probabilities of causality in Bayesian fine-mapping).</p>
 <p>The most basic functional enrichment methods estimate enrichment of association P values on the basis of comparisons of the full set of GWA variants (or a subset of those reaching genome wide significance). This yields two sets of P values; those from variants overlapping the annotation and those from variants not overlapping the annotation. Standard statistical tests (e.g. Kolmogorov-Smirnov test) can then be used to infer the probability that the two sets of P values were drawn from the same distribution, and thus infer enrichment. This method highlights some valid findings, but statistical concerns (e.g. not controlling for confounders) make it hard to trust unexpected results.</p>
 <p>Due to these confounding effects, the P values need to be adjusted using a well specified null distribution of the test statistic. For example, if the method does not take into account the non-random distribution of SNPs <strong>and</strong> annotations across the genome then this may lead to spurious results. The existing methods vary with how they define this null distribution and deal with potential confounding. For example, GoShifter uses random permutations to estimate the empirical enrichment under the null, GREGOR uses 500 matched SNPs (by (i) number of variants in LD, (ii) MAF and (iii) distance to nearest gene) to assess enrichment and GARFIELD uses feature matching (by (i) nearest TSS and (ii) LD proxies) in logistic regression to quantify enrichment.</p>
 <p>The existing methods discussed can be broadly grouped into:</p>
@@ -396,13 +396,14 @@ summary {
 <li>Implies the resulting empirically estimated prior probabilities can be used in Maller et al.’s method to reweight GWAS statistics.</li>
 <li>See detailed review here: <a href="https://annahutch.github.io/PhD/fGWAS.html" class="uri">https://annahutch.github.io/PhD/fGWAS.html</a></li>
 </ul>
-<p><strong>3. LD score regression (2015): </strong></p>
+<p><strong>3. (Stratified) LD score regression (2015): </strong></p>
 <ul>
-<li>Statistical modelling method (?)</li>
+<li>Statistical modelling method</li>
 <li>Regress LD scores (sum of r^2) against GWAS summary statistics. Expect positive correlation between LD and association statistics because the more things you tag the more likely you are to tag the CV. This means that CV effect sizes are inflated due to LD.</li>
-<li>Used to account for population stratification and cryptic relatedness to ensure that the null SNPs P values follow the uniform distribution.</li>
+<li>Used to account for confounding (population stratification and cryptic relatedness) to ensure that the null SNPs P values follow the uniform distribution.</li>
 <li>Stratified LD score regression is used for identifying functional enrichment from GWAS summary statistics (using genome-wide info from all SNPs and explicitly modelling LD).</li>
 <li>In <a href="https://www.nature.com/articles/ng.3404">this paper</a> they compare with GoShifter, fgwas, top SNPs and PICS.</li>
+<li>See detailed review here: <a href="https://annahutch.github.io/PhD/LD-score-regression.html" class="uri">https://annahutch.github.io/PhD/LD-score-regression.html</a></li>
 </ul>
 <p><strong>4. GoShifter (2015):</strong></p>
 <ul>
@@ -444,6 +445,8 @@ summary {
 <div id="limitations" class="section level4">
 <h4>Limitations</h4>
 <ul>
+<li><p>GPA doesn’t account for LD.</p></li>
+<li><p>fgwas assumes a single CV per region.</p></li>
 <li><p>GoShifter paper finds that matched SNP methods do not control for type 1 errors well and that the choice of matching parameters affect results.</p></li>
 <li><p>GoShifter involves thresholding (choosing SNPs above some LD threshold with index SNP) and tends to favor high-resolution annotations (those with small average size). It was found to be the most conservative out of the 6 methods in the GARFIELD paper.</p></li>
 <li><p>Statistical modelling methods are more complex and computationally intensive.</p></li>
