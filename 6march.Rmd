@@ -1,0 +1,681 @@
+---
+title: "5th March"
+author: "Anna Hutchinson"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(cowplot)
+```
+
+---
+
+### Two options for cFDR
+
+---
+
+My method of using non-bounded KDEs gives V values that never reach 1. Instead, we investigate using ecdfs. Integrating over ecdfs rather than KDEs extends the range of V values, meaning small V get smaller and V near to 1 get nearer to 1 (regardless of the annotation).
+
+Our two options are:
+
+1. Chris' method: Convert James' `vl()` function to take a continuous q (this new function is called `vl2()`) and integrate ecdf over these L curves. This method takes 32 mins for all 121,000 SNPs.
+
+```{r echo = FALSE, eval = FALSE}
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title
+##' @param p principal p value, in [0,1]
+##' @param q conditional value, in [-inf,inf]
+##' @param adj
+##' @param indices
+##' @param at
+##' @param mode - opposite default to vl!
+##' @param fold
+##' @param nt
+##' @param nv
+##' @param p_threshold
+##' @param scale
+##' @param closed - opposite default to vl!
+##' @param verbose
+##' @param gx
+##' @return 
+##' @author Chris Wallace
+vl2  <- function (p, q, adj = TRUE, indices = NULL, at = NULL, mode = 2, 
+                  fold = NULL, nt = 5000, nv = 1000, p_threshold = 0, scale = c("p", "z"),
+                  closed = FALSE, verbose = FALSE, gx = 10^-5) {
+  ff = function(xtest, xx, cxi) {
+    if (xx[1] <= cxi) 
+      return(xtest[1])
+    if (xx[length(xx)] >= cxi) 
+      return(xtest[length(xx)])
+    w1 = max(which(xx > cxi))
+    w2 = 1 + w1
+    xtest[w1] + (xtest[w2] - xtest[w1]) * (cxi - xx[w1])/(xx[w2] - xx[w1])
+  }
+  zp = -qnorm(p/2) # easiest to operate on z scale, to space points more tightly where needed in small p
+  ## zq = -qnorm(q/2)
+  if (any(!is.finite(zp))) 
+    stop("P-values p must be in [1e-300,1]")
+  mx = max(c(10, abs(zp)))
+  my = max(q)
+  if (is.null(indices)) {
+    if (is.null(at)) 
+      stop("One of the parameters 'indices', 'at' must be set")
+    ccut = at
+    mode = 0
+  } else ccut = rep(0, length(indices))
+  yval2 = seq(min(q), max(q), length.out = nv + 1)[1:nv]
+  xval2 = outer(rep(1, length(ccut)), yval2)
+  ## pval2 = 2 * pnorm(-yval2)
+  xtest = seq(0, mx, length.out = nt)
+  ptest = 2 * pnorm(-xtest)
+  if (!is.null(indices)) {
+        ## if (mode == 1) {
+        ##     ccut = rep(0, length(indices))
+        ##     for (i in 1:length(indices)) {
+        ##         w = which(zq[-indices[i]] >= zq[indices[i]])
+        ##         if (length(w) >= 1) {
+        ##           cfsub = (1 + (1/length(w))) * ptest/(1 + (1/length(w)) - 
+        ##             ecdf(zp[-indices[i]][w])(xtest))
+        ##           cfsub = cummin(cfsub)
+        ##           ccut[i] = approx(xtest, cfsub - gx * xtest + 
+        ##             gx * mx, zp[indices[i]], rule = 2)$y
+        ##         }
+        ##         else ccut[i] = p[indices[i]] * 1/(1 + length(which(zp[-indices[i]][w] >= 
+        ##           zp[indices[i]])))
+        ##     }
+        ## }
+        if (mode == 2) {
+            ccut = rep(0, length(indices))
+            for (i in 1:length(indices)) {
+                w = which(q[-fold] >= q[indices[i]])
+                if (length(w) >= 1) {
+                  ## prob P < p | Q > q
+                  cfsub = (1 + (1/length(w))) * ptest/(1 + (1/length(w)) - 
+                    ecdf(zp[-fold][w])(xtest))
+                  cfsub = cummin(cfsub) ## make non-decreasing
+                  ## linearly interpolate (xtest,cfsub) and find y value at x=zp
+                  ccut[i] = approx(x=xtest,
+                                   y=cfsub - gx * xtest + gx * mx,
+                                   xout=zp[indices[i]],
+                                   rule = 2)$y
+                }
+                else ccut[i] = p[indices[i]]
+            }
+        }
+        ## if (mode == 0) {
+        ##     ccut = rep(0, length(indices))
+        ##     for (i in 1:length(indices)) {
+        ##         w = which(zq >= zq[indices[i]])
+        ##         if (length(w) >= 2) {
+        ##           cfsub = (1 + (1/length(w))) * ptest/(1 + (1/length(w)) - 
+        ##             ecdf(zp[w])(xtest))
+        ##           cfsub = cummin(cfsub)
+        ##           ccut[i] = approx(xtest, cfsub - gx * xtest + 
+        ##             gx * mx, zp[indices[i]], rule = 2)$y
+        ##         }
+        ##         else ccut[i] = p[indices[i]]
+        ##     }
+        ## }
+    }
+    ccut = ccut * (1 + 1e-06) ## why?
+    ## if (verbose & mode == 1) 
+    ##     print(paste0(length(ccut), " regions to calculate"))
+    out = rep(0, length(ccut))
+    ## if (mode == 0) {
+    ##     if (adj) {
+    ##         correct = cummin((1 + ecdf(q[which(p > 0.5)])(pval2) * 
+    ##             length(p))/(1 + ecdf(q)(pval2) * length(p)))
+    ##         if (!is.null(indices)) 
+    ##             correct_ccut = approx(pval2, correct, q[indices], 
+    ##               rule = 2)$y
+    ##     }
+    ##     else {
+    ##         correct = rep(1, length(pval2))
+    ##         correct_ccut = rep(1, length(ccut))
+    ##     }
+    ##     if (!is.null(indices)) 
+    ##         ccut = ccut * correct_ccut
+    ##     zp_ind = ceiling(zp * nt/mx)
+    ##     zp_ind = pmax(1, pmin(zp_ind, nt))
+    ##     zq_ind = ceiling(zq * nv/my)
+    ##     zq_ind = pmax(1, pmin(zq_ind, nv))
+    ##     zq[which(zq > my)] = my
+    ##     zp[which(zp > mx)] = mx
+    ##     p = 2 * pnorm(-abs(zp))
+    ##     q = 2 * pnorm(-abs(zq))
+    ##     for (i in 1:length(yval2)) {
+    ##         w = which(zq > yval2[i])
+    ##         if (length(w) >= 1) {
+    ##             cfsub = ptest/(1 + (1/length(w)) - ecdf(zp[w])(xtest))
+    ##             cfsub = cummin(cfsub)
+    ##             xval2[, i] = approx(cfsub * correct[i] - gx * 
+    ##               xtest + gx * mx, xtest, ccut, rule = 2, method = "const", 
+    ##               f = 1)$y
+    ##         }
+    ##         else xval2[, i] = -qnorm(ccut/2)
+    ##     }
+    ## }
+    ## if (mode == 1) {
+    ##     zp_ind = ceiling(zp * nt/mx)
+    ##     zp_ind = pmax(1, pmin(zp_ind, nt))
+    ##     zq_ind = ceiling(zq * nv/my)
+    ##     zq_ind = pmax(1, pmin(zq_ind, nv))
+    ##     xmat = matrix(0, nt, nv)
+    ##     pqmat = xmat
+    ##     qvec = rep(0, nv)
+    ##     for (i in 1:length(p)) {
+    ##         pqmat[1:zp_ind[i], 1:zq_ind[i]] = 1 + pqmat[1:zp_ind[i], 
+    ##             1:zq_ind[i]]
+    ##         qvec[1:zq_ind[i]] = 1 + qvec[1:zq_ind[i]]
+    ##     }
+    ##     pqmat = 1 + pqmat
+    ##     qvec = 1 + qvec
+    ##     cf_mat = outer(ptest, qvec)/pqmat
+    ##     cf_mat = apply(cf_mat, 2, cummin)
+    ##     l_new = rep(0, length(p))
+    ##     for (i in 1:length(indices)) {
+    ##         if (adj) 
+    ##             correctx = cummin((1 + ecdf(q[-indices[i]][which(p[-indices[i]] > 
+    ##               0.5)])(pval2) * length(p[-indices[i]]))/(1 + 
+    ##               ecdf(q[-indices[i]])(pval2) * length(p[-indices[i]])))
+    ##         else correctx = rep(1, length(pval2))
+    ##         ccut[i] = ccut[i] * approx(yval2, correctx, zq[indices[i]], 
+    ##             rule = 2)$y
+    ##         pqnew = pqmat
+    ##         pqnew[1:zp_ind[indices[i]], 1:zq_ind[indices[i]]] = -1 + 
+    ##             pqnew[1:zp_ind[indices[i]], 1:zq_ind[indices[i]]]
+    ##         qnew = qvec
+    ##         qnew[1:zq_ind[indices[i]]] = -1 + qnew[1:zq_ind[indices[i]]]
+    ##         cfx = apply(outer(ptest, qnew)/pqnew, 2, cummin)
+    ##         cfx = t(t(cfx - gx * xtest + gx * mx) * correctx)
+    ##         cxi = ccut[i]
+    ##         xv = suppressWarnings(apply(cfx, 2, function(x) ff(xtest, 
+    ##             x, cxi)))
+    ##         xv[which(xv < 0)] = 0
+    ##         xv[which(!is.finite(xv))] = 0
+    ##         xval2[i, ] = xv
+    ##         if (verbose) 
+    ##             print(i)
+    ##     }
+    ## }
+    if (mode == 2) {
+        if (adj) {
+          correct = cummin((1 + ecdf(q[-fold][which(p[-fold] > 0.5)])(yval2) * length(p[-fold])) /
+                           (1 + ecdf(q[-fold])(yval2) * length(p[-fold])))
+            if (!is.null(indices)) 
+                correct_ccut = approx(yval2, correct, q[indices], rule = 2)$y
+        } else {
+            correct = rep(1, length(pval2))
+            correct_ccut = rep(1, length(ccut))
+        }
+        if (!is.null(indices)) 
+            ccut = ccut * correct_ccut
+        ## these don't seem to be used
+        ## zp_ind = ceiling(zp[indices] * nt/mx)
+        ## zp_ind = pmax(1, pmin(zp_ind, nt))
+        ## zq_ind = ceiling(zq[indices] * nv/my)
+        ## zq_ind = pmax(1, pmin(zq_ind, nv))
+        for (i in 1:length(yval2)) {
+            w = which(q[-fold] > yval2[i])
+            if (length(w) >= 1) {
+                cfsub = (1 + (1/length(w))) * ptest/(1 + (1/length(w)) - 
+                  ecdf(zp[-fold][w])(xtest))
+                cfsub = cummin(cfsub)
+                xval2[, i] = approx((cfsub - gx * xtest + gx * 
+                  mx) * correct[i], xtest, ccut, rule = 2, f = 1)$y
+            } else xval2[, i] = -qnorm((ccut/correct_ccut)/2)
+        }
+    }
+    xval2[which(xval2 > -qnorm(p_threshold/2))] = -qnorm(p_threshold/2)
+    if (closed) {
+        yval2 = c(Inf, -Inf, yval2, Inf, Inf)
+        xval2 = cbind(Inf, Inf, xval2, xval2[, nv], Inf)
+    }
+    if (scale[1] == "p") {
+        X = 2 * pnorm(-abs(xval2))
+    }
+    else {
+        X = xval2
+    }
+  Y = yval2
+    return(list(x = X, y = Y))
+}
+```
+
+2. Combo method: Integrate ecdf over my L curves (convert q to $[0,1]$ range, use James' `vl()` function to find L curves, convert $y$ co-ordinate of these back to $(-Inf, Inf)$ range). This method takes 29 mins for all 121,000 SNPs.
+
+---
+
+Chris' method gives spikier L curves:
+
+![](L.png)
+
+---
+
+Looking at the results for all 121,000 SNPs, we see that Chris' method adds noise. However, I am happiest with this method as it re-weights things well according to the annotation, whereas the combo method gives some very small V values for SNPs with inactive annotations.
+
+```{r echo = FALSE, fig.width = 8, fig.height = 8}
+df_chris <- readRDS("chrismethod_res.RDS")
+df_combo <- readRDS("combomethod_res.RDS")
+
+df_final <- data.frame(p = df_chris$p, q = df_chris$q, v_chris = df_chris$v_chris, v_combo = df_combo$v_combo)
+
+one <- ggplot(df_final, aes(x = p, y = v_chris)) + geom_point(aes(colour = q), alpha = 0.5, cex = 2) + theme_cowplot(12) + background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed") + ggtitle("Chris' method") + xlab("P") + ylab("V")
+
+two <- ggplot(df_final, aes(x = p, y = v_combo)) + geom_point(aes(colour = q), alpha = 0.5, cex = 2) + theme_cowplot(12) + background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed") + ggtitle("Combo method") + xlab("P") + ylab("V")
+
+three <- ggplot(df_final, aes(x = -log10(p), y = -log10(v_chris))) + geom_point(aes(colour = q), alpha = 0.5, cex = 2) + theme_cowplot(12) + background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed") + xlab("-log10(P)") + ylab("-log10(V)")+ coord_cartesian(xlim = c(4,10), ylim = c(4,10))
+
+four <- ggplot(df_final, aes(x = -log10(p), y = -log10(v_combo))) + geom_point(aes(colour = q), alpha = 0.5, cex = 2) + theme_cowplot(12) + background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed")  + xlab("-log10(P)") + ylab("-log10(V)")+ coord_cartesian(xlim = c(4,10), ylim = c(4,10))
+
+seven <- ggplot(df_final, aes(x = v_chris)) + geom_histogram(colour = "black", fill = "white", bins = 100) + theme_cowplot(12)
+
+eight <- ggplot(df_final, aes(x = v_combo)) + geom_histogram(colour = "black", fill = "white", bins = 100) + theme_cowplot(12)
+
+plot_grid(one, two, three, four, seven, eight, nrow = 3)
+```
+
+---
+
+### Iterating results
+
+---
+
+We need to iterate over many dimensions, as only ~50% of the total variation in the data set is captured by the first dimension. However, things seem to be going wrong when iterating...
+
+```{r echo = FALSE, fig.width=15, fig.height = 10}
+load("mca_fullres.RData")
+
+x_chris <- readRDS("iterchris_res.RDS")
+
+df_chris <- data.frame(matrix(unlist(x_chris), nrow=121879, byrow=F),stringsAsFactors=FALSE)
+
+mca_df <- readRDS("rowpcoords.RDS")
+
+df_chris$dim1 <- mca_df[,1]
+df_chris$dim2 <- mca_df[,2]
+df_chris$dim3 <- mca_df[,3]
+
+one <- ggplot(df_chris, aes(x = X1, y = X2)) + geom_point(aes(colour = dim1), alpha = 0.2, cex = 0.5) + theme_cowplot(12) + background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed", col = "red") + ggtitle("1st iteration") + xlab("P") + ylab("V1")
+
+two <- ggplot(df_chris, aes(x = X1, y = X3)) + geom_point(aes(colour = dim2), alpha = 0.2, cex = 0.5) + theme_cowplot(12)+ background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed", col = "red") + ggtitle("2nd iteration") + xlab("P") + ylab("V2")
+
+three <- ggplot(df_chris, aes(x = X1, y = X4)) + geom_point(aes(colour = dim3), alpha = 0.2, cex = 0.5) + theme_cowplot(12) + background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed", colour = "red") + ggtitle("3rd iteration") + xlab("P") + ylab("V3")
+
+first_row <- plot_grid(one, two, three, nrow = 1)
+
+no_leg <- one + theme(legend.position = "none")
+
+legend <- get_legend(
+  # create some space to the left of the legend
+  no_leg + theme(legend.box.margin = margin(0, 0, 0, 10))
+)
+
+first_row <- plot_grid(first_row, legend, rel_widths = c(3, .5))
+
+mca_df <- data.frame(mca.mjca.adj$colpcoord)
+
+mca_df$cell_type <- gsub(":.*", "", mca.mjca.adj$levelnames)
+
+mca_df$annotation <- gsub(".*:", "", mca.mjca.adj$levelnames)
+
+mca_df$index <- seq(1, nrow(mca_df))
+
+mc1 <- ggplot(mca_df, aes(x = cell_type, y = X1, col = annotation)) + geom_point() + ylab("Dim 1 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3)) + theme(legend.position = "none")
+
+mc2 <- ggplot(mca_df, aes(x = cell_type, y = X2, col = annotation)) + geom_point() + ylab("Dim 2 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3)) + theme(legend.position = "none")
+
+mc3 <- ggplot(mca_df, aes(x = cell_type, y = X3, col = annotation)) + geom_point() + ylab("Dim 3 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3))
+
+second_row <- plot_grid(mc1, mc2, mc3+ theme(legend.position = "none"), nrow = 1)
+
+legend <- get_legend(
+  # create some space to the left of the legend
+  mc3 + theme(legend.box.margin = margin(0, 0, 0, 10))
+)
+
+second_row <- plot_grid(second_row, legend, rel_widths = c(3, .5))
+
+hist1 <- ggplot(df_chris, aes(x = X2)) + geom_histogram(colour = "black", fill = "white", bins = 100) + xlab("V1")
+
+hist2 <- ggplot(df_chris, aes(x = X3)) + geom_histogram(colour = "black", fill = "white", bins = 100)+ xlab("V2")
+
+hist3 <- ggplot(df_chris, aes(x = X4)) + geom_histogram(colour = "black", fill = "white", bins = 100)+ xlab("V3")
+
+third_row <- plot_grid(hist1, hist2, hist3, nrow = 1)
+
+no_leg <- one + theme(legend.position = "none")
+
+legend <- get_legend(
+  # create some space to the left of the legend
+  no_leg + theme(legend.box.margin = margin(0, 0, 0, 10))
+)
+
+third_row <- plot_grid(third_row, legend, rel_widths = c(3, .5))
+
+p_chris <- plot_grid(first_row, second_row, third_row, nrow = 3)
+
+title <- ggdraw() + 
+  draw_label(
+    "Chris' method",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+plot_grid(
+  title, p_chris,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
+```
+
+---
+
+```{r echo = FALSE, fig.width=15, fig.height = 10}
+x_combo <- readRDS("itercombo_res.RDS")
+
+df_combo <- data.frame(matrix(unlist(x_combo), nrow=121879, byrow=F),stringsAsFactors=FALSE)
+
+mca_df <- readRDS("rowpcoords.RDS")
+
+df_combo$dim1 <- mca_df[,1]
+df_combo$dim2 <- mca_df[,2]
+df_combo$dim3 <- mca_df[,3]
+
+one <- ggplot(df_combo, aes(x = X1, y = X2)) + geom_point(aes(colour = dim1), alpha = 0.2, cex = 0.5) + theme_cowplot(12) + background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed", col = "red") + ggtitle("1st iteration") + xlab("P") + ylab("V1")
+
+two <- ggplot(df_combo, aes(x = X1, y = X3)) + geom_point(aes(colour = dim2), alpha = 0.2, cex = 0.5) + theme_cowplot(12)+ background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed", col = "red") + ggtitle("2nd iteration") + xlab("P") + ylab("V2")
+
+three <- ggplot(df_combo, aes(x = X1, y = X4)) + geom_point(aes(colour = dim3), alpha = 0.2, cex = 0.5) + theme_cowplot(12) + background_grid(major = "xy", minor = "none") + geom_abline(intercept = 0, slope = 1,  linetype="dashed", colour = "red") + ggtitle("3rd iteration") + xlab("P") + ylab("V3")
+
+first_row <- plot_grid(one, two, three, nrow = 1)
+
+no_leg <- one + theme(legend.position = "none")
+
+legend <- get_legend(
+  # create some space to the left of the legend
+  no_leg + theme(legend.box.margin = margin(0, 0, 0, 10))
+)
+
+first_row <- plot_grid(first_row, legend, rel_widths = c(3, .5))
+
+mca_df <- data.frame(mca.mjca.adj$colpcoord)
+
+mca_df$cell_type <- gsub(":.*", "", mca.mjca.adj$levelnames)
+
+mca_df$annotation <- gsub(".*:", "", mca.mjca.adj$levelnames)
+
+mca_df$index <- seq(1, nrow(mca_df))
+
+mc1 <- ggplot(mca_df, aes(x = cell_type, y = X1, col = annotation)) + geom_point() + ylab("Dim 1 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3)) + theme(legend.position = "none")
+
+mc2 <- ggplot(mca_df, aes(x = cell_type, y = X2, col = annotation)) + geom_point() + ylab("Dim 2 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3)) + theme(legend.position = "none")
+
+mc3 <- ggplot(mca_df, aes(x = cell_type, y = X3, col = annotation)) + geom_point() + ylab("Dim 3 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3))
+
+second_row <- plot_grid(mc1, mc2, mc3+ theme(legend.position = "none"), nrow = 1)
+
+legend <- get_legend(
+  # create some space to the left of the legend
+  mc3 + theme(legend.box.margin = margin(0, 0, 0, 10))
+)
+
+second_row <- plot_grid(second_row, legend, rel_widths = c(3, .5))
+
+hist1 <- ggplot(df_combo, aes(x = X2)) + geom_histogram(colour = "black", fill = "white", bins = 100) + xlab("V1")
+
+hist2 <- ggplot(df_combo, aes(x = X3)) + geom_histogram(colour = "black", fill = "white", bins = 100)+ xlab("V2")
+
+hist3 <- ggplot(df_combo, aes(x = X4)) + geom_histogram(colour = "black", fill = "white", bins = 100)+ xlab("V3")
+
+third_row <- plot_grid(hist1, hist2, hist3, nrow = 1)
+
+no_leg <- one + theme(legend.position = "none")
+
+legend <- get_legend(
+  # create some space to the left of the legend
+  no_leg + theme(legend.box.margin = margin(0, 0, 0, 10))
+)
+
+third_row <- plot_grid(third_row, legend, rel_widths = c(3, .5))
+
+p_combo <- plot_grid(first_row, second_row, third_row, nrow = 3)
+
+title <- ggdraw() + 
+  draw_label(
+    "Combo method",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+plot_grid(
+  title, p_combo,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
+```
+
+---
+
+### Conditional Q-Q curves
+
+---
+
+I investigate the relationship between P and Q in each analysis, focusing on the results using Chris' method.
+
+Conditional Q-Q curves show enrichment of SNPs associated with T1D as a function of association with functional annotations summarised by various dimensions from the MCA analysis (see Andreassen et al.). 
+
+Note, here I am plotting against x=-log10((1:n)/(n+1)) which are the random quantiles of a -log10 uniform distribution.
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE, fig.width = 10}
+library(EnvStats)
+
+par(mfrow=c(1,3))
+
+x_chris <- readRDS("iterchris_res.RDS")
+
+df_chris <- data.frame(matrix(unlist(x_chris), nrow=121879, byrow=F),stringsAsFactors=FALSE)
+
+mca_df <- readRDS("rowpcoords.RDS")
+
+df_chris$dim1 <- mca_df[,1]
+df_chris$dim2 <- mca_df[,2]
+df_chris$dim3 <- mca_df[,3]
+
+quantiles <- quantile(df_chris$dim1, probs = seq(0,1,0.2))
+
+qqPlot(x = -log10(seq(1,length(which(df_chris$dim1<=quantiles[[2]])))/(length(which(df_chris$dim1<=quantiles[[2]])+1))), y = -log10(df_chris$X1[which(df_chris$dim1<=quantiles[[2]])]), distribution = "unif", points.col = 1, cex = 0.5, xlab = "Theoretical quantiles", ylab = "Sample quantiles", main = "Dimension 1 (P for strata of Q1)", ylim = c(0,90)) 
+
+b = qqPlot(x = -log10(seq(1,length(which(df_chris$dim1>quantiles[[2]] & df_chris$dim1<=quantiles[[3]])))/(length(which(df_chris$dim1>quantiles[[2]] & df_chris$dim1<=quantiles[[3]]))+1)), -log10(df_chris$X1[which(df_chris$dim1>quantiles[[2]] & df_chris$dim1<=quantiles[[3]])]), distribution = "unif", plot.it = FALSE)
+
+c = qqPlot(x = -log10(seq(1,length(which(df_chris$dim1>quantiles[[3]] & df_chris$dim1<=quantiles[[4]])))/(length(which(df_chris$dim1>quantiles[[3]] & df_chris$dim1<=quantiles[[4]]))+1)), -log10(df_chris$X1[which(df_chris$dim1>quantiles[[3]] & df_chris$dim1<=quantiles[[4]])]), distribution = "unif", plot.it = FALSE)
+
+d = qqPlot(x = -log10(seq(1,length(which(df_chris$dim1>quantiles[[4]] & df_chris$dim1<=quantiles[[5]])))/(length(which(df_chris$dim1>quantiles[[4]] & df_chris$dim1<=quantiles[[5]]))+1)), -log10(df_chris$X1[which(df_chris$dim1>quantiles[[4]] & df_chris$dim1<=quantiles[[5]])]), distribution = "unif", plot.it = FALSE)
+
+e = qqPlot(x = -log10(seq(1,length(which(df_chris$dim1>quantiles[[5]] & df_chris$dim1<=quantiles[[6]])))/(length(which(df_chris$dim1>quantiles[[5]] & df_chris$dim1<=quantiles[[6]]))+1)), -log10(df_chris$X1[which(df_chris$dim1>quantiles[[5]] & df_chris$dim1<=quantiles[[6]])]), distribution = "unif", plot.it = FALSE)
+
+points(b$x, b$y, col = 2, cex = 0.5)
+points(c$x, c$y, col = 3, cex = 0.5)
+points(d$x, d$y, col = 4, cex = 0.5)
+points(e$x, e$y, col = 5, cex = 0.5)
+
+f = qqPlot(x = -log10(seq(1,121879)/(121879+1)), -log10(df_chris$X1), distribution = "unif", plot.it = FALSE)
+
+points(f$x, f$y, col = "plum1", cex = 0.3, pch = 19)
+
+abline(0,1, lty = "dashed", col = "gray")
+
+legend(0, 80, legend=c("Expected", paste0("0-0.2 quantile (mean = ",round(mean(df_chris$dim1[which(df_chris$dim1<=quantiles[[2]])]),3),")"), paste0("0.2-0.4 quantile (mean = ",round(mean(df_chris$dim1[which(df_chris$dim1>quantiles[[2]] & df_chris$dim1<=quantiles[[3]])]),3),")"), paste0("0.4-0.6 quantile (mean = ",round(mean(df_chris$dim1[which(df_chris$dim1>quantiles[[3]] & df_chris$dim1<=quantiles[[4]])]),3),")"), paste0("0.6-0.8 quantile (mean = ",round(mean(df_chris$dim1[which(df_chris$dim1>quantiles[[4]] & df_chris$dim1<=quantiles[[5]])]),3),")"), paste0("0.8-1 quantile (mean = ",round(mean(df_chris$dim1[which(df_chris$dim1>quantiles[[5]] & df_chris$dim1<=quantiles[[6]])]),3),")"),paste0("All SNPs (mean = ",round(mean(df_chris$dim1),3),")")),
+       col=c("gray", 1, 2, 3, 4, 5, "plum1"), lty=c("dashed",NA, NA, NA, NA,NA,NA), pch = c(NA, 19,19,19,19,19,19), cex=0.8)
+
+#########################################
+
+quantiles <- quantile(df_chris$dim2, probs = seq(0,1,0.2))
+
+qqPlot(x = -log10(seq(1,length(which(df_chris$dim2<=quantiles[[2]])))/(length(which(df_chris$dim2<=quantiles[[2]])+1))), y = -log10(df_chris$X2[which(df_chris$dim2<=quantiles[[2]])]), distribution = "unif", points.col = 1, cex = 0.5, xlab = "Theoretical quantiles", ylab = "Sample quantiles", main = "Dimension 2 (V1 for strata of Q2)", ylim = c(0,90)) 
+
+b = qqPlot(x = -log10(seq(1,length(which(df_chris$dim2>quantiles[[2]] & df_chris$dim2<=quantiles[[3]])))/(length(which(df_chris$dim2>quantiles[[2]] & df_chris$dim2<=quantiles[[3]]))+1)), -log10(df_chris$X2[which(df_chris$dim2>quantiles[[2]] & df_chris$dim2<=quantiles[[3]])]), distribution = "unif", plot.it = FALSE)
+
+c = qqPlot(x = -log10(seq(1,length(which(df_chris$dim2>quantiles[[3]] & df_chris$dim2<=quantiles[[4]])))/(length(which(df_chris$dim2>quantiles[[3]] & df_chris$dim2<=quantiles[[4]]))+1)), -log10(df_chris$X2[which(df_chris$dim2>quantiles[[3]] & df_chris$dim2<=quantiles[[4]])]), distribution = "unif", plot.it = FALSE)
+
+d = qqPlot(x = -log10(seq(1,length(which(df_chris$dim2>quantiles[[4]] & df_chris$dim2<=quantiles[[5]])))/(length(which(df_chris$dim2>quantiles[[4]] & df_chris$dim2<=quantiles[[5]]))+1)), -log10(df_chris$X2[which(df_chris$dim2>quantiles[[4]] & df_chris$dim2<=quantiles[[5]])]), distribution = "unif", plot.it = FALSE)
+
+e = qqPlot(x = -log10(seq(1,length(which(df_chris$dim2>quantiles[[5]] & df_chris$dim2<=quantiles[[6]])))/(length(which(df_chris$dim2>quantiles[[5]] & df_chris$dim2<=quantiles[[6]]))+1)), -log10(df_chris$X2[which(df_chris$dim2>quantiles[[5]] & df_chris$dim2<=quantiles[[6]])]), distribution = "unif", plot.it = FALSE)
+
+points(b$x, b$y, col = 2, cex = 0.5)
+points(c$x, c$y, col = 3, cex = 0.5)
+points(d$x, d$y, col = 4, cex = 0.5)
+points(e$x, e$y, col = 5, cex = 0.5)
+
+f = qqPlot(x = -log10(seq(1,121879)/(121879+1)), -log10(df_chris$X2), distribution = "unif", plot.it = FALSE)
+
+points(f$x, f$y, col = "plum1", cex = 0.3, pch = 19)
+
+abline(0,1, lty = "dashed", col = "gray")
+
+legend(0, 80, legend=c("Expected", paste0("0-0.2 quantile (mean = ",round(mean(df_chris$dim2[which(df_chris$dim2<=quantiles[[2]])]),3),")"), paste0("0.2-0.4 quantile (mean = ",round(mean(df_chris$dim2[which(df_chris$dim2>quantiles[[2]] & df_chris$dim2<=quantiles[[3]])]),3),")"), paste0("0.4-0.6 quantile (mean = ",round(mean(df_chris$dim2[which(df_chris$dim2>quantiles[[3]] & df_chris$dim2<=quantiles[[4]])]),3),")"), paste0("0.6-0.8 quantile (mean = ",round(mean(df_chris$dim2[which(df_chris$dim2>quantiles[[4]] & df_chris$dim2<=quantiles[[5]])]),3),")"), paste0("0.8-1 quantile (mean = ",round(mean(df_chris$dim2[which(df_chris$dim2>quantiles[[5]] & df_chris$dim2<=quantiles[[6]])]),3),")"),paste0("All SNPs (mean = ",round(mean(df_chris$dim2),3),")")),
+       col=c("gray", 1, 2, 3, 4, 5, "plum1"), lty=c("dashed",NA, NA, NA, NA,NA,NA), pch = c(NA, 19,19,19,19,19,19), cex=0.8)
+
+
+##########################
+
+quantiles <- quantile(df_chris$dim3, probs = seq(0,1,0.2))
+
+qqPlot(x = -log10(seq(1,length(which(df_chris$dim3<=quantiles[[2]])))/(length(which(df_chris$dim3<=quantiles[[2]])+1))), y = -log10(df_chris$X3[which(df_chris$dim3<=quantiles[[2]])]), distribution = "unif", points.col = 1, cex = 0.5, xlab = "Theoretical quantiles", ylab = "Sample quantiles", main = "Dimension 3 (V2 for strata of Q3)", ylim = c(0,90))
+
+b = qqPlot(x = -log10(seq(1,length(which(df_chris$dim3>quantiles[[2]] & df_chris$dim3<=quantiles[[3]])))/(length(which(df_chris$dim3>quantiles[[2]] & df_chris$dim3<=quantiles[[3]]))+1)), -log10(df_chris$X3[which(df_chris$dim3>quantiles[[2]] & df_chris$dim3<=quantiles[[3]])]), distribution = "unif", plot.it = FALSE)
+
+c = qqPlot(x = -log10(seq(1,length(which(df_chris$dim3>quantiles[[3]] & df_chris$dim3<=quantiles[[4]])))/(length(which(df_chris$dim3>quantiles[[3]] & df_chris$dim3<=quantiles[[4]]))+1)), -log10(df_chris$X3[which(df_chris$dim3>quantiles[[3]] & df_chris$dim3<=quantiles[[4]])]), distribution = "unif", plot.it = FALSE)
+
+d = qqPlot(x = -log10(seq(1,length(which(df_chris$dim3>quantiles[[4]] & df_chris$dim3<=quantiles[[5]])))/(length(which(df_chris$dim3>quantiles[[4]] & df_chris$dim3<=quantiles[[5]]))+1)), -log10(df_chris$X3[which(df_chris$dim3>quantiles[[4]] & df_chris$dim3<=quantiles[[5]])]), distribution = "unif", plot.it = FALSE)
+
+e = qqPlot(x = -log10(seq(1,length(which(df_chris$dim3>quantiles[[5]] & df_chris$dim3<=quantiles[[6]])))/(length(which(df_chris$dim3>quantiles[[5]] & df_chris$dim3<=quantiles[[6]]))+1)), -log10(df_chris$X3[which(df_chris$dim3>quantiles[[5]] & df_chris$dim3<=quantiles[[6]])]), distribution = "unif", plot.it = FALSE)
+
+points(b$x, b$y, col = 2, cex = 0.5)
+points(c$x, c$y, col = 3, cex = 0.5)
+points(d$x, d$y, col = 4, cex = 0.5)
+points(e$x, e$y, col = 5, cex = 0.5)
+
+f = qqPlot(x = -log10(seq(1,121879)/(121879+1)), -log10(df_chris$X3), distribution = "unif", plot.it = FALSE)
+
+points(f$x, f$y, col = "plum1", cex = 0.3, pch = 19)
+
+abline(0,1, lty = "dashed", col = "gray")
+
+legend(0, 80, legend=c("Expected", paste0("0-0.2 quantile (mean = ",round(mean(df_chris$dim3[which(df_chris$dim3<=quantiles[[2]])]),3),")"), paste0("0.2-0.4 quantile (mean = ",round(mean(df_chris$dim3[which(df_chris$dim3>quantiles[[2]] & df_chris$dim3<=quantiles[[3]])]),3),")"), paste0("0.4-0.6 quantile (mean = ",round(mean(df_chris$dim3[which(df_chris$dim3>quantiles[[3]] & df_chris$dim3<=quantiles[[4]])]),3),")"), paste0("0.6-0.8 quantile (mean = ",round(mean(df_chris$dim3[which(df_chris$dim3>quantiles[[4]] & df_chris$dim3<=quantiles[[5]])]),3),")"), paste0("0.8-1 quantile (mean = ",round(mean(df_chris$dim3[which(df_chris$dim3>quantiles[[5]] & df_chris$dim3<=quantiles[[6]])]),3),")"),paste0("All SNPs (mean = ",round(mean(df_chris$dim3),3),")")),
+       col=c("gray", 1, 2, 3, 4, 5, "plum1"), lty=c("dashed",NA, NA, NA, NA,NA,NA), pch = c(NA, 19,19,19,19,19,19), cex=0.8)
+
+title(main = "Q-Q plots assessing uniformality of P\nfor quantiles of q", line = -2, outer = TRUE)
+
+```
+
+```{r echo = FALSE, fig.width= 12, fig.height = 8}
+mca_mjca <- data.frame(Dimension = c("1","2","3","4","5","6","7","8","9","10"), Adj = mca.mjca.adj$inertia.e[1:10])
+
+mca_df <- data.frame(mca.mjca.adj$colpcoord)
+
+mca_df$cell_type <- gsub(":.*", "", mca.mjca.adj$levelnames)
+
+mca_df$annotation <- gsub(".*:", "", mca.mjca.adj$levelnames)
+
+mca_df$index <- seq(1, nrow(mca_df))
+
+mc1 <- ggplot(mca_df, aes(x = cell_type, y = X1, col = annotation)) + geom_point() + ylab("Dim 1 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3))
+
+mc2 <- ggplot(mca_df, aes(x = cell_type, y = X2, col = annotation)) + geom_point() + ylab("Dim 2 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3))
+
+mc3 <- ggplot(mca_df, aes(x = cell_type, y = X3, col = annotation)) + geom_point() + ylab("Dim 3 Coords") + geom_hline(yintercept = 0)+ theme_cowplot(12) + background_grid(major = "xy", minor = "none") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_cartesian(ylim = c(-2,3))
+
+plot <- plot_grid(mc1 + theme(legend.position = "none"), mc2 + theme(legend.position = "none"), mc3 + theme(legend.position = "none"), nrow = 1)
+
+title <-ggdraw() +
+  draw_label("MCA",
+             fontface = "bold")
+
+plot_final_mca <- plot_grid(title, plot, ncol = 1, rel_heights = c(0.05, 1))
+
+legend <- get_legend(
+  # create some space to the left of the legend
+  mc3 + theme(legend.box.margin = margin(0, 0, 0, 10))
+)
+
+plot_grid(plot_final_mca, legend, rel_widths = c(3, .5))
+```
+
+---
+
+These results mostly make sense:
+
+* Dimension 1: Higher values of Q predict lower P (yep high Q is promoter/enhancer and low Q is heterochromatin). 
+
+* Dimension 2: Lower values of Q predict lower P (yep low is transcribed) until top quantile which predicts lower P too (yep high is promoter/enhancer).
+
+* Dimension 3: Higher values of Q predict lower P (hmm low Q is promoter and high Q is reg permissive?).
+
+---
+
+### Distribution of Q
+
+---
+
+Chris said: "ok - so can you show me the distribution of q?  I wonder if there is a bunch of q near its minimum value, all with high-ish p?  This might cause the simple ecdf to fail, while the combo method smooths over them (by simply not fitting the points of the curve in that range)".
+
+```{r echo = FALSE, fig.width=10}
+par(mfrow = c(1,3))
+hist(df_chris$dim1, breaks = 1000, main = "Dimension 1", xlab = "Q1")
+hist(df_chris$dim2, breaks = 1000, main = "Dimension 2", xlab = "Q2")
+hist(df_chris$dim3, breaks = 1000, main = "Dimension 3", xlab = "Q3")
+```
+
+From the conditional Q-Q plots above we see that in the smallest quantile of Q2, the P values are the smallest which gives merit to what Chris says above. 
+
+However, the combo method also fails?
+
+---
+
+```{r echo = FALSE, eval = FALSE, warning = FALSE}
+### Fold-enrichment plots
+
+#The fold enrichment is calculated as the ratio between the -log10(p) cumulative distribution for a given stratum and the cumulative distribution for all SNPs.
+
+quantiles <- quantile(df_chris$dim1, probs = seq(0,1,0.2))
+
+##### smallest quantile 
+
+x = -log10(seq(1,length(which(df_chris$dim1<=quantiles[[2]])))/(length(which(df_chris$dim1<=quantiles[[2]])+1)))
+
+ecdf_full = ecdf(-log10(df_chris$dim1))
+ecdf_quant1 = ecdf(-log10(df_chris$dim1[which(df_chris$dim2<=quantiles[[2]])]))
+
+y = ecdf_quant1(x)/ecdf_full(ecdf_quant1(x))
+
+###### all SNPs
+
+x = -log10(seq(1,length(which(df_chris$dim1>quantiles[[5]] & df_chris$dim1<=quantiles[[6]])))/(length(which(df_chris$dim1>quantiles[[5]] & df_chris$dim1<=quantiles[[6]]))+1))
+
+y = ecdf_quant1(x)/ecdf_full(ecdf_quant1(x))
+
+plot(x, y)
+```
+
+### Final comments
+
+* Paper that uses functional annotations and cFDR in a different way: https://academic.oup.com/hmg/article/26/22/4530/4097760#113429336
+
+* cFDR write up: https://www.overleaf.com/8936597366gszgkkddjtpr
