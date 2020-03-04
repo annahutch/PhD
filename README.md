@@ -128,7 +128,7 @@
 
 - [6th Feb 2020](http://annahutch.github.io/PhD/6feb.html)
 
-- [12th Feb 2020](http://annahutch.github.io/PhD/12feb.html)
+- [12th Feb 2020](http://annahutch.github.io/PhD/12feb2020.html)
 
 ### Existing methods:
 
