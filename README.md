@@ -154,3 +154,6 @@
 
 - [PAINTOR](http://annahutch.github.io/PhD/PAINTOR.html)
 
+### Extra reading:
+
+- [Knockoffs](http://annahutch.github.io/PhD/knockoffs.html)
