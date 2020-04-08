@@ -118,6 +118,8 @@
 
 - [End of 2019 summary](http://annahutch.github.io/PhD/end-of-year-summary.html)
 
+## cfdr method for functional annotations
+
 - [9th Jan 2020](http://annahutch.github.io/PhD/9jan.html)
 
 - [17th Jan 2020](http://annahutch.github.io/PhD/17jan.html)
@@ -139,6 +141,8 @@
 - [26th March 2020](http://annahutch.github.io/PhD/26march20.html)
 
 - [2nd April 2020](http://annahutch.github.io/PhD/2april20.html)
+
+- [9nd April 2020](http://annahutch.github.io/PhD/9april20.html)
 
 ### Existing methods:
 
