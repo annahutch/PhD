@@ -178,6 +178,8 @@
 
 - [6th August 2020](http://annahutch.github.io/PhD/6aug20.html)
 
+- [13th August 2020](http://annahutch.github.io/PhD/13aug20.html)
+
 ### Existing methods:
 
 - [Summary](http://annahutch.github.io/PhD/summary.html)
