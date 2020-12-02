@@ -194,6 +194,8 @@
 
 - [26th November 2020](http://annahutch.github.io/PhD/26nov20.html)
 
+- [3rd December 2020](http://annahutch.github.io/PhD/3dec20.html)
+
 ### Existing methods:
 
 - [Summary](http://annahutch.github.io/PhD/summary.html)
